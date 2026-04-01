@@ -1,17 +1,18 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import BaseOutputBuilder, { commonValueParsers, ElementType } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@solothought/base-output-builder';
 
 const rootName = '!ordered_kv';
 
-export default class SequentialBuilderFactory {
+export default class SequentialBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
+    super()
     this.options = buildOptions(options);
-    this.commonValParsers = commonValueParsers();
+    // this.commonValParsers = commonValueParsers();
   }
 
-  registerValueParser(name, parserInstance) {
-    this.commonValParsers[name] = parserInstance;
-  }
+  // registerValueParser(name, parserInstance) {
+  //   this.commonValParsers[name] = parserInstance;
+  // }
 
   getInstance(parserOptions, readonlyMatcher) {
     const valParsers = { ...this.commonValParsers };

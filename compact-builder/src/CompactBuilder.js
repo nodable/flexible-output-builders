@@ -1,13 +1,13 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, commonValueParsers, ElementType } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@solothought/base-output-builder';
 import { Expression } from 'path-expression-matcher';
 
 const rootName = '^';
 
-export default class CompactBuilderFactory {
+export default class CompactBuilderFactory extends BaseOutputBuilderFactory {
   constructor(builderOptions) {
+    super()
     this.options = buildOptions(builderOptions);
-    this.commonValParsers = commonValueParsers();
 
     // Pre-compile any string expressions in alwaysArray to Expression objects once
     if (this.options.alwaysArray) {
@@ -17,10 +17,10 @@ export default class CompactBuilderFactory {
     }
   }
 
-  registerValueParser(name, parserInstance) {
-    //This would replace the default value parser with the user provided value parser
-    this.commonValParsers[name] = parserInstance;
-  }
+  // registerValueParser(name, parserInstance) {
+  //   //This would replace the default value parser with the user provided value parser
+  //   this.commonValParsers[name] = parserInstance;
+  // }
 
   getInstance(parserOptions, readonlyMatcher) {
     const valParsers = { ...this.commonValParsers };
@@ -37,7 +37,7 @@ export class CompactBuilder extends BaseOutputBuilder {
     this.options = {
       ...builderOptions,
       ...parserOptions,
-      // skip: { ...builderOptions.skip, ...parserOptions.skip },
+      skip: { ...builderOptions.skip, ...parserOptions.skip },
       nameFor: { ...builderOptions.nameFor, ...parserOptions.nameFor },
       tags: { ...builderOptions.tags, ...parserOptions.tags },
       attributes: { ...builderOptions.attributes, ...parserOptions.attributes },

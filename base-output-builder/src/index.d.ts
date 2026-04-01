@@ -1,3 +1,4 @@
+import type { ReadonlyMatcher } from "path-xml-parser";
 
 /**
  * A custom entity map: keys are entity names (without & and ;),
@@ -116,11 +117,11 @@ export declare const ElementType: {
  * `addDeclaration`, `onStopNode`.
  *
  * @example
- * import { BaseOutputBuilder } from 'flex-xml-parser';
+ * import { BaseOutputBuilder } from '@solothought/base-output-builder';
  * class MyBuilder extends BaseOutputBuilder { ... }
  */
-export declare class BaseOutputBuilder implements OutputBuilderInstance {
-  constructor(readonlyMatcher?: any);
+export declare class BaseOutputBuilder implements BaseOutputBuilderInterface {
+  constructor(readonlyMatcher: any);
   addAttribute(name: string, value: any, matcher: any): void;
   parseValue(val: any, valParsers: Array<string | ValueParser>, context?: object): any;
   addComment(text: string): void;
@@ -188,7 +189,7 @@ export interface ValueParser {
 /**
  * Output builder instance interface - defines the contract for all output builders
  */
-export interface OutputBuilderInstance {
+export interface BaseOutputBuilderInterface {
   /** Start a new element */
   addElement(tag: { name: string }, matcher: any): void;
   /** Close the current element */
@@ -217,6 +218,21 @@ export interface OutputBuilderInstance {
   ): void;
   /** Registered value parsers */
   registeredValParsers: Record<string, ValueParser>;
+}
+
+export interface BaseOutputBuilderFactory {
+  /**
+   * Called by XML Parser to get an instance of the output builder
+   * @param parserOptions 
+   * @param readonlyMatcher 
+   */
+  getInstance(parserOptions: object, readonlyMatcher: ReadonlyMatcher): BaseOutputBuilderInterface;
+  /**
+   * Called by user to register a value parser.
+   * @param name - Name of the value parser
+   * @param parser - Value parser instance
+   */
+  registerValueParser(name: string, parser: ValueParser): void;
 }
 
 /**

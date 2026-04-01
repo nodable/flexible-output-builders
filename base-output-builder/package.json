@@ -19,6 +19,7 @@
   ],
   "dependencies": {
     "flexible-xml-parser": "file:../../flex-xml-parser",
+    "path-expression-matcher": "^1.2.0",
     "strnum": "^2.2.2"
   },
   "devDependencies": {

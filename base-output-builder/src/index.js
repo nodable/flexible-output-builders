@@ -1,6 +1,7 @@
 
 
 export { default as BaseOutputBuilder, ElementType, commonValueParsers } from './BaseOutputBuilder.js';
+export { default as BaseOutputBuilderFactory } from './BaseOutputBuilderFactory.js';
 
 export { default as EntitiesValueParser } from './ValueParsers/EntityParser/EntitiesValueParser.js';
 export { default as EntitiesParser, defaultXmlEntities, defaultHtmlEntities } from './ValueParsers/EntityParser/EntitiesParser.js';
