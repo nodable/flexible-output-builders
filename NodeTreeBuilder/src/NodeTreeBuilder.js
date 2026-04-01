@@ -22,7 +22,7 @@ export default class NodeTreeBuilderFactory {
   }
 }
 
-class NodeTreeBuilder extends BaseOutputBuilder {
+export class NodeTreeBuilder extends BaseOutputBuilder {
 
   constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher) {
     super(readonlyMatcher);
@@ -139,5 +139,3 @@ class Node {
       this[":@"] = attributes;
   }
 }
-
-export { NodeTreeBuilder };

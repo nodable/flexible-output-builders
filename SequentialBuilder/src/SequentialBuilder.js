@@ -19,7 +19,7 @@ export default class SequentialBuilderFactory {
   }
 }
 
-class SequentialBuilder extends BaseOutputBuilder {
+export class SequentialBuilder extends BaseOutputBuilder {
 
   constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher) {
     super(readonlyMatcher);
@@ -154,5 +154,3 @@ class Node {
       this.attributes = attributes;
   }
 }
-
-export { SequentialBuilder as OrderedKeyValBuilder };
