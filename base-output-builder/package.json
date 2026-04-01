@@ -1,0 +1,28 @@
+{
+  "name": "@solothought/base-output-builder",
+  "version": "1.0.0",
+  "description": "Base output builder for flex-xml-parser",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "flexible-xml-parser",
+    "solothought"
+  ],
+  "author": "Amit Gupta (https://solothought.com)",
+  "license": "MIT",
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "flexible-xml-parser": "file:../../flex-xml-parser",
+    "strnum": "^2.2.2"
+  },
+  "devDependencies": {
+    "@solothought/compact-builder": "file:../compact-builder",
+    "@solothought/flexible-xml-parser": "file:../../flex-xml-parser"
+  }
+}
