@@ -1,9 +1,3 @@
-import booleanParser from "./ValueParsers/booleanParser.js";
-import currencyParser from "./ValueParsers/currency.js";
-import numberParser from "./ValueParsers/number.js";
-import trimParser from "./ValueParsers/trim.js";
-import EntitiesValueParser from "../EntityParser/EntitiesValueParser.js";
-
 const defaultOptions = {
   nameFor: {
     text: "#text",
