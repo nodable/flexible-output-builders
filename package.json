@@ -32,6 +32,6 @@
     "url": "https://github.com/solothought/flex-output-builders/issues"
   },
   "devDependencies": {
-    "flexible-xml-parser": "file:../flex-xml-parser"
+    "@solothought/flexible-xml-parser": "file:../flex-xml-parser"
   }
 }

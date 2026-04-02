@@ -26,8 +26,9 @@ const defaultOptions = {
 };
 
 // Default chains: replaceEntities first (expand references), then type coercion.
-const defaultTagParsers = ["entity", "boolean", "number"];
-const defaultAttrParsers = ["entity", "number", "boolean"];
+// const defaultTagParsers = ["entity", "boolean", "number"];
+const defaultTagParsers = ["trim", "number", "boolean"];
+const defaultAttrParsers = ["trim", "number", "boolean"];
 
 export function buildOptions(options) {
   const finalOptions = deepClone(defaultOptions);
