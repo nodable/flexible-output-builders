@@ -3,7 +3,12 @@ export interface SkipOptions {
   declaration?: boolean;
   /** Skip processing instructions (other than declaration) from output. Default: false */
   pi?: boolean;
-  /** Skip all attributes from output. Default: true */
+  /**
+   * Skip all attributes from output. When true (default), the `attributes`
+   * property on every node is an empty object `{}`.
+   * Set to false to populate attributes.
+   * Default: true
+   */
   attributes?: boolean;
   /** Exclude CDATA sections entirely from output. Default: false */
   cdata?: boolean;
@@ -21,13 +26,15 @@ export interface SkipOptions {
 
 export interface NameForOptions {
   /**
-   * Property name for mixed text content when a tag contains both text and child elements.
+   * Property name for inline text nodes in mixed content
+   * (i.e. text that appears alongside child elements in the same parent).
+   * These appear as `{ [text]: value }` entries in the `child` array.
    * Default: '#text'
    */
   text?: string;
   /**
    * Property name for CDATA sections.
-   * Empty string (default) merges CDATA content into the tag's text value.
+   * Empty string (default) merges CDATA content into the node's `text` value.
    */
   cdata?: string;
   /**
@@ -41,7 +48,12 @@ export interface NameForOptions {
 export interface AttributeOptions {
   /** Allow boolean (valueless) attributes — treated as `true`. Default: false */
   booleanType?: boolean;
-  /** Group all attributes under this property name. Empty string = inline with tag. Default: '' */
+  /**
+   * Property name under which all attributes are grouped on each node.
+   * The `attributes` property is always present (empty `{}` when no attributes
+   * or when `skip.attributes` is true).
+   * Default: 'attributes'
+   */
   groupBy?: string;
   /** Prefix prepended to attribute names in output. Default: '@_' */
   prefix?: string;
@@ -66,24 +78,42 @@ export interface TagOptions {
 }
 
 export interface FactoryOptions {
-
   /** Fine-grained control over which node types appear in output */
   skip?: SkipOptions;
 
   /** Property names used for special nodes in output */
   nameFor?: NameForOptions;
 
-  // --- attribute controls ---
   /** Attribute parsing and representation options */
   attributes?: AttributeOptions;
 
-  // --- tag controls ---
   /** Tag parsing options including stop nodes and value parser chain */
   tags?: TagOptions;
 }
 
+/**
+ * A parsed XML node as produced by NodeTreeBuilder.
+ *
+ * - `tagname`    — element name
+ * - `child`      — ordered array of child nodes; empty for leaf nodes
+ * - `attributes` — always present; populated when `skip.attributes` is false
+ * - `text`       — only present on leaf nodes (no child elements); holds the
+ *                  parsed text value (may be string, number, or boolean
+ *                  depending on the active value-parser chain)
+ *
+ * In mixed content (text interleaved with child elements), inline text runs
+ * appear in `child` as `{ [nameFor.inlineText]: value }` objects (default
+ * key is `":text"`). The parent node has no `text` property in that case.
+ */
+export interface XmlNode {
+  tagname: string;
+  child: Array<XmlNode | Record<string, any>>;
+  attributes: Record<string, any>;
+  text?: string | number | boolean;
+  [key: string]: any;
+}
 
-export interface NodeTreeBuilder {
+export interface NodeTreeBuilderInstance {
   addElement(tag: { name: string }, matcher: any): void;
   closeElement(matcher: any): void;
   addValue(text: string, matcher: any): void;
@@ -98,13 +128,11 @@ export interface NodeTreeBuilder {
    * that implements addInputEntities().
    */
   addInputEntities(entities: object): void;
-  getOutput(): any;
+  getOutput(): XmlNode | XmlNode[];
   registeredValParsers: Record<string, ValueParser>;
   /**
    * Optional hook called by the parser when a stop node is fully collected.
-   * Implement this in custom OutputBuilder classes to handle stop-node content.
-   * `NodeTreeBuilder` and `CompactObjBuilder` implement it and delegate to the
-   * `options.onStopNode` callback when supplied.
+   * Delegates to the `options.onStopNode` callback when supplied.
    */
   onStopNode?(
     tagDetail: { name: string; line: number; col: number; index: number },
@@ -125,8 +153,8 @@ export interface ValueParser {
   parse(val: any, context?: { tagName: string; isAttribute: boolean; attrName?: string }): any;
 }
 
-export class NodeTreeBuilderFactory implements OutputBuilderFactory {
+export class NodeTreeBuilderFactory {
   constructor(options?: Partial<FactoryOptions>);
-  getInstance(factoryOptions: FactoryOptions): NodeTreeBuilder;
+  getInstance(factoryOptions: FactoryOptions): NodeTreeBuilderInstance;
   registerValueParser(name: string, parser: ValueParser): void;
 }

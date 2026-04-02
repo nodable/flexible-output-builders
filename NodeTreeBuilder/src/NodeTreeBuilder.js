@@ -1,4 +1,3 @@
-
 //OrderedOutputBuilder
 
 import { buildOptions } from './ParserOptionsBuilder.js';
@@ -31,27 +30,41 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
     this.parserOptions = parserOptions;
 
     this.options = {
-      ...builderOptions,
       ...parserOptions,
-      skip: { ...builderOptions.skip, ...parserOptions.skip },
-      nameFor: { ...builderOptions.nameFor, ...parserOptions.nameFor },
-      tags: { ...builderOptions.tags, ...parserOptions.tags },
-      attributes: { ...builderOptions.attributes, ...parserOptions.attributes },
-      compactLeaf: builderOptions.compactLeaf === true
+      ...builderOptions,
+      skip: { ...parserOptions.skip, ...builderOptions.skip },
+      nameFor: { ...parserOptions.nameFor, ...builderOptions.nameFor },
+      tags: { ...parserOptions.tags, ...builderOptions.tags },
+      attributes: { ...parserOptions.attributes, ...builderOptions.attributes },
     };
 
     this.registeredValParsers = registeredValParsers;
 
-    this.root = new Node(rootName);
+    this.root = new Node(rootName, this.options);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
   }
 
   addElement(tag) {
+    // If the current node has text set (text arrived before any child element),
+    // retroactively migrate it into the child array as an inline text entry
+    // now that we know this is mixed content.
+    if (this.currentNode.text !== undefined) {
+      this.currentNode.child.unshift({
+        [this.options.nameFor.text]: this.currentNode.text
+      });
+      delete this.currentNode.text;
+    }
+
     this.tagsStack.push(this.currentNode);
-    this.currentNode = new Node(tag.name, this.attributes);
+    const node = new Node(tag.name, this.options);
+    // Attach any pending attributes onto the new node
+    if (this.attributes && Object.keys(this.attributes).length > 0) {
+      node[this.options.attributes.groupBy] = { ...this.attributes };
+    }
     this.attributes = {};
+    this.currentNode = node;
   }
 
   /**
@@ -71,8 +84,6 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
     const node = this.currentNode;
     this.currentNode = this.tagsStack.pop();
 
-    // Compact Stop Node
-    const isStopNode = this._pendingStopNode;
     this._pendingStopNode = false;
 
     if (this.options.onClose !== undefined) {
@@ -80,49 +91,69 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
       if (resultTag) return;
     }
 
-    // Compact Leaf
-    if (this.options.compactLeaf && !node[":@"]) {
-      const textKey = this.options.nameFor.text;
-
-      const isSingleTextChild =
-        node.child.length === 1 &&
-        Object.prototype.hasOwnProperty.call(node.child[0], textKey) &&
-        Object.keys(node.child[0]).length === 1;
-
-      const isEmptyLeaf = node.child.length === 0;
-
-      if (isSingleTextChild || isEmptyLeaf) {
-        const value = isSingleTextChild ? node.child[0][textKey] : "";
-        this.currentNode.child.push({ [node.tagname]: value });
-        return;
-      }
-    }
-
     this.currentNode.child.push(node);
   }
 
-  _addChild(key, val) {
-    this.currentNode.child.push({ [key]: val });
+  _addChild(node) {
+    // this.currentNode.child.push({ [key]: val });
+    this.currentNode.child.push(node);
   }
 
   addValue(text) {
-    const tagName = this.currentNode?.tagname;
+    const tagName = this.currentNode?.elementname;
+    // Check whether there are already element children (mixed content scenario)
+    const hasElementChildren = this.currentNode?.child?.some(c => c.elementname !== undefined);
+
     const context = {
       elementName: tagName,
       elementValue: text,
       elementType: ElementType.ELEMENT,
       matcher: this.matcher,
-      isLeafNode: this.currentNode?.child?.length === 0,
+      isLeafNode: !hasElementChildren,
     };
-    this.currentNode.child.push({
-      [this.options.nameFor.text]: this.parseValue(text, this.options.tags.valueParsers, context)
-    });
+
+    const parsedValue = this.parseValue(text, this.options.tags.valueParsers, context);
+
+    if (hasElementChildren || this.options.textInChild) {
+      // Mixed content: text alongside child elements — store as inline text child
+      this.currentNode.child.push({
+        [this.options.nameFor.text]: parsedValue
+      });
+    } else {
+      // Pure text (leaf node or text before any child elements):
+      // set directly on the node as `text` property
+      this.currentNode.text = parsedValue;
+    }
   }
 
   addInstruction(name) {
-    const node = new Node(name, this.attributes);
-    this.currentNode.child.push(node);
+    const node = new Node(name, this.options);
+    if (!isEmpty(this.attributes)) {
+      node[this.options.attributes.groupBy] = this.attributes;
+    }
+    // this.currentNode.child.push(node);
+    this._addChild(node);
     this.attributes = {};
+  }
+
+  addComment(text) {
+    if (this.options.skip.comment) return;
+    if (this.options.nameFor.comment) {
+      const node = new Node(this.options.nameFor.comment, this.options);
+      node.text = text;
+      this._addChild(node);
+    }
+  }
+
+  addLiteral(text) {
+    if (this.options.skip.cdata) return;
+    if (this.options.nameFor.cdata) {
+      const node = new Node(this.options.nameFor.cdata, this.options);
+      node.text = text;
+      this._addChild(node);
+    } else {
+      this.addValue(text || "");
+    }
   }
 
   getOutput() {
@@ -133,10 +164,14 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
 }
 
 class Node {
-  constructor(tagname, attributes) {
-    this.tagname = tagname;
+  constructor(elementname, options) {
+    this.elementname = elementname;
     this.child = [];
-    if (attributes && Object.keys(attributes).length > 0)
-      this[":@"] = attributes;
+    const groupBy = options?.attributes?.groupBy ?? 'attributes';
+    this[groupBy] = {};
   }
+}
+
+function isEmpty(obj) {
+  return Object.keys(obj).length === 0;
 }
