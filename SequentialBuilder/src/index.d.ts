@@ -3,7 +3,12 @@ export interface SkipOptions {
   declaration?: boolean;
   /** Skip processing instructions (other than declaration) from output. Default: false */
   pi?: boolean;
-  /** Skip all attributes from output. Default: true */
+  /**
+   * Skip all attributes from output. When true (default), the `attributes`
+   * property on every entry is an empty object `{}`.
+   * Set to false to populate attributes.
+   * Default: true
+   */
   attributes?: boolean;
   /** Exclude CDATA sections entirely from output. Default: false */
   cdata?: boolean;
@@ -21,19 +26,22 @@ export interface SkipOptions {
 
 export interface NameForOptions {
   /**
-   * Property name for mixed text content when a tag contains both text and child elements.
+   * Property name for inline text nodes in mixed content
+   * (i.e. text that appears alongside child elements in the same parent).
+   * These appear as `{ [text]: value }` entries in the children array.
    * Default: '#text'
    */
   text?: string;
   /**
    * Property name for CDATA sections.
-   * Empty string (default) merges CDATA content into the tag's text value.
+   * When set, CDATA nodes appear as `{ [cdata]: value }` entries in the children array.
+   * When unset (default), CDATA content is merged into the node's `text` value.
    */
   cdata?: string;
   /**
    * Property name for XML comments.
-   * Empty string (default) omits comments from output.
-   * Set e.g. '#comment' to capture them.
+   * When unset (default), comments are omitted from output.
+   * Set e.g. '#comment' to capture them as `{ '#comment': value }` entries.
    */
   comment?: string;
 }
@@ -41,7 +49,11 @@ export interface NameForOptions {
 export interface AttributeOptions {
   /** Allow boolean (valueless) attributes — treated as `true`. Default: false */
   booleanType?: boolean;
-  /** Group all attributes under this property name. Empty string = inline with tag. Default: '' */
+  /**
+   * Property name under which all attributes are grouped on each entry, as a
+   * sibling alongside the tag-name key.
+   * Default: 'attributes'
+   */
   groupBy?: string;
   /** Prefix prepended to attribute names in output. Default: '@_' */
   prefix?: string;
@@ -60,30 +72,63 @@ export interface TagOptions {
    * Value parser chain for tag text content.
    * Built-in names: 'entity', 'boolean', 'number', 'trim', 'currency'.
    * Default: ['entity', 'boolean', 'number']
-   * Add 'trim' to strip leading/trailing whitespace (not done by default).
    */
   valueParsers?: Array<string | ValueParser>;
 }
 
 export interface FactoryOptions {
-
   /** Fine-grained control over which node types appear in output */
   skip?: SkipOptions;
 
   /** Property names used for special nodes in output */
   nameFor?: NameForOptions;
 
-  // --- attribute controls ---
   /** Attribute parsing and representation options */
   attributes?: AttributeOptions;
 
-  // --- tag controls ---
   /** Tag parsing options including stop nodes and value parser chain */
   tags?: TagOptions;
+
+  /**
+   * When true, text is always stored as a `{ [nameFor.text]: value }` child entry,
+   * even on pure leaf nodes (no mixed content required).
+   * Default: false — leaf text is stored as a `text` sibling property on the entry.
+   */
+  textInChild?: boolean;
 }
 
+/**
+ * A parsed XML entry as produced by SequentialBuilder.
+ *
+ * Structure:
+ *   {
+ *     [tagName]: Array<SequentialEntry>,   // tag name directly points to children array
+ *     [groupBy]?: Record<string, any>,     // attributes (sibling property; present only when non-empty)
+ *     text?: any                           // only present on leaf nodes (no child element entries)
+ *   }
+ *
+ * Leaf node (text only, no child elements):
+ *   { child: [], text: "Hello" }           — wait, the key IS the tag name:
+ *   { span: [], text: "Hello" }
+ *
+ * Empty tag:
+ *   { br: [] }
+ *
+ * Tag with child elements:
+ *   { div: [ ...childEntries ] }
+ *
+ * Tag with attributes:
+ *   { item: [], attributes: { "@_id": 1 }, text: "val" }
+ *
+ * Mixed content (text interleaved with child elements):
+ *   Inline text runs appear as `{ [nameFor.text]: value }` entries inside the array.
+ *   The entry has no `text` property in that case.
+ *
+ * The overall `getOutput()` returns an array — always — even for a single root element.
+ */
+export type SequentialEntry = Record<string, any>;
 
-export interface SequentialBuilder {
+export interface SequentialBuilderInstance {
   addElement(tag: { name: string }, matcher: any): void;
   closeElement(matcher: any): void;
   addValue(text: string, matcher: any): void;
@@ -98,13 +143,11 @@ export interface SequentialBuilder {
    * that implements addInputEntities().
    */
   addInputEntities(entities: object): void;
-  getOutput(): any;
+  getOutput(): SequentialEntry[];
   registeredValParsers: Record<string, ValueParser>;
   /**
    * Optional hook called by the parser when a stop node is fully collected.
-   * Implement this in custom OutputBuilder classes to handle stop-node content.
-   * `NodeTreeBuilder` and `CompactObjBuilder` implement it and delegate to the
-   * `options.onStopNode` callback when supplied.
+   * Delegates to the `options.onStopNode` callback when supplied.
    */
   onStopNode?(
     tagDetail: { name: string; line: number; col: number; index: number },
@@ -115,18 +158,13 @@ export interface SequentialBuilder {
 
 /**
  * A value parser transforms a value in the parsing chain.
- * Receives the current value and an optional context object.
  */
 export interface ValueParser {
-  /**
-   * @param val     Current value (string initially; may already be typed if earlier parsers ran)
-   * @param context { tagName, isAttribute, attrName? }
-   */
   parse(val: any, context?: { tagName: string; isAttribute: boolean; attrName?: string }): any;
 }
 
-export class SequentialBuilderFactory implements OutputBuilderFactory {
+export class SequentialBuilderFactory {
   constructor(options?: Partial<FactoryOptions>);
-  getInstance(factoryOptions: FactoryOptions): SequentialBuilder;
+  getInstance(factoryOptions: FactoryOptions): SequentialBuilderInstance;
   registerValueParser(name: string, parser: ValueParser): void;
 }

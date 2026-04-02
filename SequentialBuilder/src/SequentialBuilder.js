@@ -1,18 +1,13 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@solothought/base-output-builder';
 
-const rootName = '!ordered_kv';
+const rootName = '!sequential_root';
 
 export default class SequentialBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
-    super()
+    super();
     this.options = buildOptions(options);
-    // this.commonValParsers = commonValueParsers();
   }
-
-  // registerValueParser(name, parserInstance) {
-  //   this.commonValParsers[name] = parserInstance;
-  // }
 
   getInstance(parserOptions, readonlyMatcher) {
     const valParsers = { ...this.commonValParsers };
@@ -28,27 +23,41 @@ export class SequentialBuilder extends BaseOutputBuilder {
     this.parserOptions = parserOptions;
 
     this.options = {
-      ...builderOptions,
       ...parserOptions,
-      skip: { ...builderOptions.skip, ...parserOptions.skip },
-      nameFor: { ...builderOptions.nameFor, ...parserOptions.nameFor },
-      tags: { ...builderOptions.tags, ...parserOptions.tags },
-      attributes: { ...builderOptions.attributes, ...parserOptions.attributes },
-      compactLeaf: builderOptions.compactLeaf === true
+      ...builderOptions,
+      skip: { ...parserOptions.skip, ...builderOptions.skip },
+      nameFor: { ...parserOptions.nameFor, ...builderOptions.nameFor },
+      tags: { ...parserOptions.tags, ...builderOptions.tags },
+      attributes: { ...parserOptions.attributes, ...builderOptions.attributes },
     };
 
     this.registeredValParsers = registeredValParsers;
 
-    this.root = new Node(rootName);
+    this.root = new Node(rootName, this.options);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
   }
 
   addElement(tag) {
+    // If the current node has text set (text arrived before any child element),
+    // retroactively migrate it into the children array as an inline text entry
+    // now that we know this is mixed content.
+    if (this.currentNode.text !== undefined) {
+      this.currentNode.children.unshift({
+        [this.options.nameFor.text]: this.currentNode.text
+      });
+      delete this.currentNode.text;
+    }
+
     this.tagsStack.push(this.currentNode);
-    this.currentNode = new Node(tag.name, this.attributes);
+    const node = new Node(tag.name, this.options);
+    // Attach any pending attributes onto the new node
+    if (this.attributes && Object.keys(this.attributes).length > 0) {
+      node[this.options.attributes.groupBy] = { ...this.attributes };
+    }
     this.attributes = {};
+    this.currentNode = node;
   }
 
   /**
@@ -68,8 +77,6 @@ export class SequentialBuilder extends BaseOutputBuilder {
     const node = this.currentNode;
     this.currentNode = this.tagsStack.pop();
 
-    // Compact Stop Node
-    const isStopNode = this._pendingStopNode;
     this._pendingStopNode = false;
 
     if (this.options.onClose !== undefined) {
@@ -77,81 +84,99 @@ export class SequentialBuilder extends BaseOutputBuilder {
       if (resultTag) return;
     }
 
-    // Compact Leaf
-    if (this.options.compactLeaf && !node.attributes) {
-      const textKey = this.options.nameFor.text;
+    // Build the sequential representation:
+    // { [tagName]: children, [groupBy]: attributes, text? }
+    // Tag name directly points to the children array.
+    // Attributes (when present) are a sibling property alongside the tag key.
+    const entry = { [node.tagname]: node.children };
 
-      const isSingleTextChild =
-        node.children.length === 1 &&
-        Object.prototype.hasOwnProperty.call(node.children[0], textKey) &&
-        Object.keys(node.children[0]).length === 1;
-
-      const isEmptyLeaf = node.children.length === 0;
-
-      if (isSingleTextChild || isEmptyLeaf) {
-        const value = isSingleTextChild ? node.children[0][textKey] : "";
-        this.currentNode.children.push({ [node.tagname]: value });
-        return;
-      }
+    const groupBy = this.options.attributes.groupBy;
+    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
+      entry[groupBy] = node[groupBy];
     }
 
-    // Convert node to ordered key-value format
-    const keyValNode = this._convertToKeyVal(node);
-    this.currentNode.children.push(keyValNode);
-  }
-
-  _convertToKeyVal(node) {
-    const result = {};
-
-    // If node has attributes, include them with ":@" prefix
-    if (node.attributes && Object.keys(node.attributes).length > 0) {
-      result[node.tagname] = node.children;
-      // You might want to handle attributes differently based on your needs
-      // For now, they're not included in the output to match your example
-    } else {
-      result[node.tagname] = node.children;
+    // text is a sibling property (leaf-node case — no element children)
+    if (node.text !== undefined) {
+      entry.text = node.text;
     }
 
-    return result;
-  }
-
-  _addChild(key, val) {
-    this.currentNode.children.push({ [key]: val });
+    this.currentNode.children.push(entry);
   }
 
   addValue(text) {
     const tagName = this.currentNode?.tagname;
+    // Check whether there are already element children (mixed content scenario).
+    // Mixed content = children that are NOT bare text entries.
+    const hasElementChildren = this.currentNode?.children?.some(
+      c => !Object.prototype.hasOwnProperty.call(c, this.options.nameFor.text)
+    );
+
     const context = {
       elementName: tagName,
       elementValue: text,
       elementType: ElementType.ELEMENT,
       matcher: this.matcher,
-      isLeafNode: this.currentNode?.children?.length === 0,
+      isLeafNode: !hasElementChildren,
     };
-    this.currentNode.children.push({
-      [this.options.nameFor.text]: this.parseValue(text, this.options.tags.valueParsers, context)
-    });
+
+    const parsedValue = this.parseValue(text, this.options.tags.valueParsers, context);
+
+    if (hasElementChildren || this.options.textInChild) {
+      // Mixed content: text alongside child elements — store as inline text child
+      this.currentNode.children.push({
+        [this.options.nameFor.text]: parsedValue
+      });
+    } else {
+      // Pure text (leaf node or text before any child elements):
+      // set directly on the node; promoted to sibling property in closeElement.
+      this.currentNode.text = parsedValue;
+    }
   }
 
   addInstruction(name) {
-    const node = new Node(name, this.attributes);
-    const keyValNode = this._convertToKeyVal(node);
-    this.currentNode.children.push(keyValNode);
+    const node = new Node(name, this.options);
+    const groupBy = this.options.attributes.groupBy;
+    if (this.attributes && Object.keys(this.attributes).length > 0) {
+      node[groupBy] = { ...this.attributes };
+    }
+    const entry = { [node.tagname]: node.children };
+    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
+      entry[groupBy] = node[groupBy];
+    }
+    this.currentNode.children.push(entry);
     this.attributes = {};
   }
 
+  addComment(text) {
+    if (this.options.skip.comment) return;
+    if (this.options.nameFor.comment) {
+      this.currentNode.children.push({
+        [this.options.nameFor.comment]: text
+      });
+    }
+  }
+
+  addLiteral(text) {
+    if (this.options.skip.cdata) return;
+    if (this.options.nameFor.cdata) {
+      this.currentNode.children.push({
+        [this.options.nameFor.cdata]: text
+      });
+    } else {
+      this.addValue(text || '');
+    }
+  }
+
   getOutput() {
-    const children = this.root.children;
-    if (children.length === 1) return children;
-    return children;
+    return this.root.children;
   }
 }
 
 class Node {
-  constructor(tagname, attributes) {
+  constructor(tagname, options) {
     this.tagname = tagname;
     this.children = [];
-    if (attributes && Object.keys(attributes).length > 0)
-      this.attributes = attributes;
+    const groupBy = options?.attributes?.groupBy ?? 'attributes';
+    this[groupBy] = {};
   }
 }

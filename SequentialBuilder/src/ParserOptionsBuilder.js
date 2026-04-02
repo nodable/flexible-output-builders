@@ -1,28 +1,29 @@
 const defaultOptions = {
   nameFor: {
     text: "#text",
-    comment: "",
-    cdata: "",
+    // comment: "",
+    // cdata: "",
   },
   skip: {
-    declaration: false,
-    pi: false,
-    attributes: true,
-    cdata: false,
-    comment: false,
-    nsPrefix: false,
-    tags: false,
+    // declaration: false,
+    // pi: false,
+    // attributes: true,
+    // cdata: false,
+    // comment: false,
+    // nsPrefix: false,
+    // tags: false,
   },
   tags: {
     valueParsers: [],
-    stopNodes: [],
+    // stopNodes: [],
   },
   attributes: {
     prefix: "@_",
     suffix: "",
-    groupBy: "",
+    groupBy: "attributes",
     valueParsers: [],
   },
+  textInChild: false,
 };
 
 // Default chains: replaceEntities first (expand references), then type coercion.
