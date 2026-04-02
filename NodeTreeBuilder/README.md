@@ -53,6 +53,32 @@ Output:
 }
 ```
 
+#### textInChild
+
+However, if `textInChild` is set to `true` then text is always inserted in child.
+
+
+Input:
+```xml
+<p>Hello <b>world</b>!</p>
+```
+
+Output:
+```js
+{
+  tagname: "p",
+  child: [
+    { ":text": "Hello " },
+    { tagname: "b", child: [
+      { ":text": "world" }
+      ], attributes: {}},
+    { ":text": "!" }
+  ],
+  attributes: {}
+}
+```
+
+
 ## Basic example
 
 Input:
