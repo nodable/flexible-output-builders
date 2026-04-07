@@ -1,0 +1,24 @@
+{
+  "name": "@solothought/compact-stream-builder",
+  "version": "1.0.0",
+  "description": "Compact stream output builder for flex-xml-parser",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "flexible-xml-parser",
+    "solothought"
+  ],
+  "author": "Amit Gupta (https://solothought.com)",
+  "license": "MIT",
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@solothought/base-output-builder": "file:../base-output-builder",
+    "path-expression-matcher": "^1.2.0"
+  }
+}
