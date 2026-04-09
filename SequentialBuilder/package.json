@@ -1,7 +1,7 @@
 {
   "name": "@nodable/sequential-builder",
   "version": "1.0.0",
-  "description": "Sequential output builder for flex-xml-parser",
+  "description": "Sequential JS Array builder for flexible-xml-parser",
   "main": "src/index.js",
   "types": "./src/index.d.ts",
   "type": "module",
@@ -19,6 +19,16 @@
   ],
   "dependencies": {
     "@nodable/base-output-builder": "file:../base-output-builder",
-    "path-expression-matcher": "^1.2.0"
+    "path-expression-matcher": "^1.4.0"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/nodable"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodable/flexible-output-builder.git"
   }
 }

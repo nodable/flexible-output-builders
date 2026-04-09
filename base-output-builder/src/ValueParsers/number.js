@@ -2,7 +2,7 @@ import toNumber from 'strnum';
 
 /**
  * Number parser class that wraps the strnum toNumber function
- * Provides consistent API for value parsing in flex-xml-parser
+ * Provides consistent API for value parsing in flexible-xml-parser
  */
 export default class numParser {
   constructor(options) {

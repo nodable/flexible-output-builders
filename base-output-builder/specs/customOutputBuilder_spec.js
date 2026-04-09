@@ -12,7 +12,7 @@
  */
 
 import XMLParser from "@nodable/flexible-xml-parser";
-import { CompactBuilderFactory, CompactBuilder } from "@nodable/compact-builder";
+import { CompactBuilderFactory, CompactBuilder } from "../../compact-builder/src/index.js";
 import {
   runAcrossAllInputSources,
   runAcrossAllInputSourcesWithFactory,

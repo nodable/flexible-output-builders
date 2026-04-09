@@ -23,6 +23,6 @@
     "nodable"
   ],
   "devDependencies": {
-    "@nodable/flexible-xml-parser": "file:../flex-xml-parser"
+    "@nodable/flexible-xml-parser": "file:../flexible-xml-parser"
   }
 }

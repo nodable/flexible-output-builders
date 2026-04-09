@@ -1,7 +1,7 @@
 {
   "name": "@nodable/node-tree-builder",
   "version": "1.0.0",
-  "description": "Node tree output builder for flex-xml-parser",
+  "description": "Node tree JS Object Sequential builder for flexible-xml-parser",
   "main": "src/index.js",
   "types": "./src/index.d.ts",
   "type": "module",
@@ -10,7 +10,8 @@
   },
   "keywords": [
     "flexible-xml-parser",
-    "nodable"
+    "nodable",
+    "xml"
   ],
   "author": "Amit Gupta (https://solothought.com)",
   "license": "MIT",
@@ -19,6 +20,16 @@
   ],
   "dependencies": {
     "@nodable/base-output-builder": "file:../base-output-builder",
-    "path-expression-matcher": "^1.2.0"
+    "path-expression-matcher": "^1.4.0"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/nodable"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodable/flexible-output-builder.git"
   }
 }

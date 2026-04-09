@@ -10,7 +10,8 @@
   },
   "keywords": [
     "flexible-xml-parser",
-    "nodable"
+    "nodable",
+    "xml"
   ],
   "author": "Amit Gupta (https://solothought.com)",
   "license": "MIT",
@@ -18,11 +19,17 @@
     "src"
   ],
   "dependencies": {
-    "path-expression-matcher": "^1.2.0",
+    "path-expression-matcher": "^1.4.0",
     "strnum": "^2.2.2"
   },
-  "devDependencies": {
-    "@nodable/compact-builder": "file:../compact-builder",
-    "@nodable/flexible-xml-parser": "file:../../flex-xml-parser"
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/nodable"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodable/flexible-output-builder.git"
   }
 }
