@@ -1,6 +1,6 @@
-# Flex Output Builders
+# Output Builders
 
-A collection of customizable output builders for [flexible-xml-parser](https://github.com/solothought/flexible-xml-parser). These builders allow you to transform XML into various JavaScript data structures and formats.
+A collection of customizable output builders for [flexible-xml-parser](https://github.com/nodable /flexible-xml-parser). These builders allow you to transform XML into various JavaScript data structures and formats.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ Output builders are generic enough to be used by other parsers that expect the s
 
 This monorepo contains the following packages:
 
-### [@solothought/base-output-builder](./base-output-builder)
+### [@nodable/base-output-builder](./base-output-builder)
 
 The foundation for all output builders. Provides:
 - Base `BaseOutputBuilder` class for creating custom builders
@@ -27,7 +27,7 @@ The foundation for all output builders. Provides:
 
 **Use when:** Building a custom output format or extending existing builders
 
-### [@solothought/compact-builder](./compact-builder)
+### [@nodable/compact-builder](./compact-builder)
 
 Generates compact, minimal JavaScript objects from XML.
 
@@ -39,7 +39,7 @@ Generates compact, minimal JavaScript objects from XML.
 
 **Use when:** You need clean, minimal JSON-like objects
 
-### [@solothought/sequential-builder](./SequentialBuilder)
+### [@nodable/sequential-builder](./SequentialBuilder)
 
 Generates sequential array-based representation of XML.
 
@@ -50,7 +50,20 @@ Generates sequential array-based representation of XML.
 
 **Use when:** Order of elements is critical or you need to process XML sequentially
 
-### [@solothought/node-tree-builder](./NodeTreeBuilder)
+### [@nodable/sequential-stream-builder](./SequentialStreamBuilder)
+
+Generates sequential array-based representation of XML but on the stream.
+
+**Features:**
+- Array-based structure preserving document order
+- All elements as array entries
+- Maintains element sequence
+
+**Use when:** 
+- Order of elements is critical or you need to process XML sequentially
+- You are processing large XML files and need to process them on the stream
+
+### [@nodable/node-tree-builder](./NodeTreeBuilder)
 
 Generates a fixed-structure tree where each node has `tagname` and `child` properties.
 
@@ -70,23 +83,26 @@ Install the output builder you need:
 
 ```bash
 # For compact objects
-npm install @solothought/compact-builder
+npm install @nodable/compact-builder
 
 # For sequential arrays
-npm install @solothought/sequential-builder
+npm install @nodable/sequential-builder
+
+# For sequential stream arrays
+npm install @nodable/sequential-stream-builder
 
 # For fixed-structure trees
-npm install @solothought/node-tree-builder
+npm install @nodable/node-tree-builder
 
 # For custom builders
-npm install @solothought/base-output-builder
+npm install @nodable/base-output-builder
 ```
 
 ### Basic Usage
 
 ```javascript
-import XMLParser from "@solothought/flexible-xml-parser";
-import CompactBuilder from "@solothought/compact-builder";
+import XMLParser from "@nodable/flexible-xml-parser";
+import CompactBuilder from "@nodable/compact-builder";
 
 const xml = `
   <catalog>
@@ -108,7 +124,7 @@ console.log(result);
 ### Creating Custom Builders
 
 ```javascript
-import { BaseOutputBuilder, commonValueParsers } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, commonValueParsers } from '@nodable/base-output-builder';
 
 class MyCustomBuilder extends BaseOutputBuilder {
   constructor(parserOptions, builderOptions, valParsers, matcher) {
@@ -167,7 +183,7 @@ All builders include these value parsers:
 ### Customizing Value Parsers
 
 ```javascript
-import { numberParser } from '@solothought/base-output-builder';
+import { numberParser } from '@nodable/base-output-builder';
 
 const customNumber = new numberParser({ 
   hex: true, 
@@ -189,7 +205,7 @@ The entity parser supports four types of entities:
 4. **External** - Programmatically registered entities
 
 ```javascript
-import { EntitiesValueParser } from "@solothought/base-output-builder";
+import { EntitiesValueParser } from "@nodable/base-output-builder";
 
 const entityParser = new EntitiesValueParser({
   default: true,          // Enable XML entities
@@ -247,16 +263,16 @@ Contributions are welcome! Please ensure:
 
 ## License
 
-MIT © [Amit Gupta](https://solothought.com)
+MIT © [Amit Gupta](https://nodable.com)
 
 ## Links
 
-- [Flexible XML Parser](https://github.com/solothought/flexible-xml-parser)
-- [Documentation](https://github.com/solothought/flex-output-builders#readme)
-- [Issues](https://github.com/solothought/flex-output-builders/issues)
+- [Flexible XML Parser](https://github.com/nodable/flexible-xml-parser)
+- [Documentation](https://github.com/nodable/flex-output-builders#readme)
+- [Issues](https://github.com/nodable/flex-output-builders/issues)
 
 ## Author
 
 **Amit Gupta**
-- Website: [solothought.com](https://solothought.com)
-- GitHub: [@solothought](https://github.com/solothought)
+- Website: [nodable.com](https://nodable.com)
+- GitHub: [@nodable](https://github.com/nodable)

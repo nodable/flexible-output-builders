@@ -1,5 +1,5 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@nodable/base-output-builder';
 
 const rootName = '!sequential_root';
 
@@ -169,6 +169,43 @@ export class SequentialBuilder extends BaseOutputBuilder {
 
   getOutput() {
     return this.root.children;
+  }
+
+  /**
+ * Called by the parser when `exitIf` returns true for the current tag.
+ * Receives a snapshot of the parser state at the moment of exit, after
+ * all open tags have been cleanly closed by the parser.
+ *
+ * Override in subclasses to record the exit position or annotate output.
+ *
+ * @param {object} exitInfo
+ * @param {object} exitInfo.tagDetail   - `{ name, line, col, index }` of the
+ *                                        tag that triggered the exit.
+ * @param {object} exitInfo.matcher     - Read-only matcher positioned at
+ *                                        that tag at the moment exitIf fired.
+ * @param {number} exitInfo.depth       - Nesting depth at exit (0 = root children).
+ */
+  onExit(exitInfo) {
+    // Base implementation: attach exit metadata to the output root so callers
+    // can tell the parse was intentionally truncated and where it stopped.
+    // Stored under __exitInfo to avoid colliding with any tag-derived key.
+    // Subclasses may override to suppress, transform, or log this information.
+    // if (this.value && typeof this.value === 'object') {
+    //   Object.defineProperty(this.value, '__exitInfo', {
+    //     value: {
+    //       tag: exitInfo.tagDetail.name,
+    //       line: exitInfo.tagDetail.line,
+    //       col: exitInfo.tagDetail.col,
+    //       index: exitInfo.tagDetail.index,
+    //       depth: exitInfo.depth,
+    //     },
+    //     enumerable: false,   // invisible to JSON.stringify and for-in
+    //     configurable: true,
+    //     writable: true,
+    //   });
+    // }
+
+    //Do nothing
   }
 }
 

@@ -11,8 +11,8 @@
  * use case. The rest of the parsing pipeline is unchanged.
  */
 
-import XMLParser from "@solothought/flexible-xml-parser";
-import { CompactBuilderFactory, CompactBuilder } from "@solothought/compact-builder";
+import XMLParser from "@nodable/flexible-xml-parser";
+import { CompactBuilderFactory, CompactBuilder } from "@nodable/compact-builder";
 import {
   runAcrossAllInputSources,
   runAcrossAllInputSourcesWithFactory,

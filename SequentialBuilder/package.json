@@ -1,5 +1,5 @@
 {
-  "name": "@solothought/sequential-builder",
+  "name": "@nodable/sequential-builder",
   "version": "1.0.0",
   "description": "Sequential output builder for flex-xml-parser",
   "main": "src/index.js",
@@ -10,7 +10,7 @@
   },
   "keywords": [
     "flexible-xml-parser",
-    "solothought"
+    "nodable"
   ],
   "author": "Amit Gupta (https://solothought.com)",
   "license": "MIT",
@@ -18,7 +18,7 @@
     "src"
   ],
   "dependencies": {
-    "@solothought/base-output-builder": "file:../base-output-builder",
+    "@nodable/base-output-builder": "file:../base-output-builder",
     "path-expression-matcher": "^1.2.0"
   }
 }

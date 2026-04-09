@@ -1,17 +1,17 @@
 # Base Output Builder
 
-Base output builder is the base class to create output builders for @solothought/flexible-xml-parser.
+Base output builder is the base class to create output builders for @nodable/flexible-xml-parser.
 
 ## Installation
 
 ```bash
-npm install @solothought/base-output-builder
+npm install @nodable/base-output-builder
 ```
 
 ## Usage
 
 ```javascript
-import { BaseOutputBuilder, commonValueParsers } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, commonValueParsers } from '@nodable/base-output-builder';
 
 class MyOutputBuilder extends BaseOutputBuilder {
   constructor(options) {
@@ -53,8 +53,8 @@ const MyBuilderFactory = {
 You can also modify the bhaviour of value parsers bundled with base-output-builder by passing options.
 
 ```js
-import { numberParser } from '@solothought/base-output-builder';
-import { XmlParser } from '@solothought/flexible-xml-parser';
+import { numberParser } from '@nodable/base-output-builder';
+import { XmlParser } from '@nodable/flexible-xml-parser';
 
 const numberParserInstance = new numberParser({ hex: true, leadingZeros: true, eNotation: true });
 
@@ -97,7 +97,7 @@ Category 2
 4. **EXTERNAL**: These entities are set by programmaer in code. These are recommended over INPUT entities for security reasons. 
 
 ```js
-import { EntitiesValueParser } from "@solothought/base-output-builder"
+import { EntitiesValueParser } from "@nodable/base-output-builder"
 
 const evp = new EntitiesValueParser({
   docType: true

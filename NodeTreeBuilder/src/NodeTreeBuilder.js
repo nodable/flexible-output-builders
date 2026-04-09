@@ -1,7 +1,7 @@
 //OrderedOutputBuilder
 
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@solothought/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@nodable/base-output-builder';
 
 const rootName = '!js_arr';
 

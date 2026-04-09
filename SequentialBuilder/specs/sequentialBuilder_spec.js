@@ -40,7 +40,7 @@
  *  16. Full snapshot tests
  */
 
-import XMLParser from "@solothought/flexible-xml-parser";
+import XMLParser from "@nodable/flexible-xml-parser";
 import SequentialBuilderFactory from "../src/SequentialBuilder.js";
 import {
   runAcrossAllInputSources,

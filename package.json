@@ -1,13 +1,13 @@
 {
-  "name": "flex-output-builders",
+  "name": "flexible-output-builders",
   "private": true,
-  "version": "1.0.0",
   "description": "Output builders collection for flexible-xml-parser",
   "type": "module",
   "workspaces": [
     "base-output-builder",
     "compact-builder",
     "SequentialBuilder",
+    "SequentialStreamBuilder",
     "NodeTreeBuilder"
   ],
   "scripts": {
@@ -20,18 +20,9 @@
     "flexible-xml-parser",
     "xml",
     "parser",
-    "solothought"
+    "nodable"
   ],
-  "author": "Amit Gupta (https://solothought.com)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/solothought/flex-output-builders.git"
-  },
-  "homepage": "https://github.com/solothought/flex-output-builders#readme",
-  "bugs": {
-    "url": "https://github.com/solothought/flex-output-builders/issues"
-  },
   "devDependencies": {
-    "@solothought/flexible-xml-parser": "file:../flex-xml-parser"
+    "@nodable/flexible-xml-parser": "file:../flex-xml-parser"
   }
 }

@@ -87,14 +87,14 @@ Output:
 ## Install
 
 ```bash
-npm install @solothought/sequential-builder
+npm install @nodable/sequential-builder
 ```
 
 ## Usage
 
 ```js
-import XMLParser from "@solothought/flexible-xml-parser";
-import SequentialBuilderFactory from "@solothought/sequential-builder";
+import XMLParser from "@nodable/flexible-xml-parser";
+import {SequentialBuilderFactory} from "@nodable/sequential-builder";
 
 const parser = new XMLParser({
   OutputBuilder: new SequentialBuilderFactory(builderOptions),

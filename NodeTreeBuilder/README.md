@@ -106,14 +106,14 @@ The fixed structure lets you traverse the tree without defensive property checks
 ## Install
 
 ```bash
-npm install @solothought/node-tree-builder
+npm install @nodable/node-tree-builder
 ```
 
 ## Usage
 
 ```js
-import XMLParser from "@solothought/flexible-xml-parser";
-import NodeTreeBuilderFactory from "@solothought/node-tree-builder";
+import XMLParser from "@nodable/flexible-xml-parser";
+import NodeTreeBuilderFactory from "@nodable/node-tree-builder";
 
 const parser = new XMLParser({
   OutputBuilder: new NodeTreeBuilderFactory(builderOptions),

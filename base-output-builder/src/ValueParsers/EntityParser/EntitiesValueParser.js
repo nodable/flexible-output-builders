@@ -1,5 +1,5 @@
 import EntitiesParser from './EntitiesParser.js';
-import { ParseError, ErrorCode } from '@solothought/flexible-xml-parser';
+import { ParseError, ErrorCode } from '@nodable/flexible-xml-parser';
 
 /**
  * EntitiesValueParser — value parser that expands entity references.

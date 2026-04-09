@@ -148,6 +148,22 @@ export default class BaseOutputBuilder {
    */
   addInstruction(name) {
   }
+
+  /**
+   * Called by the parser when `exitIf` returns true for the current tag.
+   * Receives a snapshot of the parser state at the moment of exit, after
+   * all open tags have been cleanly closed by the parser.
+   *
+   * Override in subclasses to record the exit position or annotate output.
+   *
+   * @param {object} exitInfo
+   * @param {object} exitInfo.tagDetail   - `{ name, line, col, index }` of the
+   *                                        tag that triggered the exit.
+   * @param {object} exitInfo.matcher     - Read-only matcher positioned at
+   *                                        that tag at the moment exitIf fired.
+   * @param {number} exitInfo.depth       - Nesting depth at exit (0 = root children).
+   */
+  onExit(exitInfo) { }
 }
 
 export function commonValueParsers() {

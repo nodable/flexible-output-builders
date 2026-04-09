@@ -1,4 +1,4 @@
-import XMLParser from "@solothought/flexible-xml-parser";
+import XMLParser from "@nodable/flexible-xml-parser";
 import CompactBuilderFactory from "../src/CompactBuilder.js";
 
 describe("NodeTreeBuilder", () => {

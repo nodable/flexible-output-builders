@@ -117,7 +117,7 @@ export declare const ElementType: {
  * `addDeclaration`, `onStopNode`.
  *
  * @example
- * import { BaseOutputBuilder } from '@solothought/base-output-builder';
+ * import { BaseOutputBuilder } from '@nodable/base-output-builder';
  * class MyBuilder extends BaseOutputBuilder { ... }
  */
 export declare class BaseOutputBuilder implements BaseOutputBuilderInterface {

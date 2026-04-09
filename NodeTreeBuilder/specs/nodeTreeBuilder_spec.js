@@ -49,7 +49,7 @@
  *  16. Full snapshot tests
  */
 
-import XMLParser from "@solothought/flexible-xml-parser";
+import XMLParser from "@nodable/flexible-xml-parser";
 import NodeTreeBuilderFactory from "../src/NodeTreeBuilder.js";
 import {
   runAcrossAllInputSources,

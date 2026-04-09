@@ -5,14 +5,14 @@ This helps to generate compact or minimal JS Object from XML.
 ## Installation
 
 ```bash
-npm install @solothought/compact-builder
+npm install @nodable/compact-builder
 ```
 
 ## Usage
 
 ```javascript
-import XMLParser from "@solothought/flexible-xml-parser";
-import CompactBuilder from "@solothought/compact-builder";
+import XMLParser from "@nodable/flexible-xml-parser";
+import CompactBuilder from "@nodable/compact-builder";
 
 const parser = new XMLParser({
   OutputBuilder: new CompactBuilder()
@@ -36,8 +36,8 @@ Forces specific XML tags to always be represented as arrays, even when only a si
 - Supports path-based, attribute-based, and leaf-node-based decisions
 
 ```js
-import XMLParser from "@solothought/flexible-xml-parser"
-import CompactBuilder from "@solothought/compact-builder"
+import XMLParser from "@nodable/flexible-xml-parser"
+import CompactBuilder from "@nodable/compact-builder"
 
 const inputXml = `<catalog><book>Title</book></catalog>`;
 

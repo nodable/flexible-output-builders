@@ -1,4 +1,4 @@
-import XMLParser from "@solothought/flexible-xml-parser";
+import XMLParser from "@nodable/flexible-xml-parser";
 
 /**
  * Creates an input source wrapper for different input types
