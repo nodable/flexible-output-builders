@@ -125,3 +125,34 @@ const evpOn = new EntitiesValueParser({ default: true, external: true });
 ```
 - **maxTotalExpansions**: number. Default is 0. Maximum number of entity expansions allowed per document.
 - **maxExpandedLength**: number. Default is 0. Maximum number of characters added by entity expansion per document.
+
+## Custom Value Parsers
+
+Custom parsers receive `(val, context)` where context carries `{ elementName, elementValue, elementType, matcher, isLeafNode }`:
+
+```javascript
+class PriceParser {
+  parse(val, context) {
+    return context.elementName === 'price' ? parseFloat(val) : val;
+  }
+}
+
+```
+
+Register a reusable custom parser by name via `CompactObjBuilder`:
+
+```javascript
+import { CompactBuilderFactory } from '@nodable/compact-builder';
+
+const builderFactory = new CompactBuilderFactory({
+  tags: {
+    valueParsers: ['price', 'entity', 'number', 'boolean', 'trim', 'currency']
+  }
+);
+builderFactory.registerValueParser('price', new PriceParser());
+
+const parser = new XMLParser({
+  OutputBuilder: builderFactory,
+});
+```
+
