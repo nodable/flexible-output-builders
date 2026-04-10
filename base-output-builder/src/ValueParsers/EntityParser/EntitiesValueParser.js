@@ -1,5 +1,5 @@
 import EntitiesParser from './EntitiesParser.js';
-import { ParseError, ErrorCode } from '@nodable/flexible-xml-parser';
+import { ParseError, ErrorCode } from '../../ParseError.js';
 
 /**
  * EntitiesValueParser — value parser that expands entity references.

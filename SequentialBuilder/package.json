@@ -17,9 +17,11 @@
   "files": [
     "src"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@nodable/base-output-builder": "file:../base-output-builder",
-    "path-expression-matcher": "^1.4.0"
+    "@nodable/base-output-builder": "^1.0.2"
   },
   "funding": [
     {

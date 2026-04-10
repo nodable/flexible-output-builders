@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Built-in entity tables
 // ---------------------------------------------------------------------------
-import { ParseError, ErrorCode } from '@nodable/flexible-xml-parser';
+import { ParseError, ErrorCode } from '../../ParseError.js';
 
 /** Standard XML entities — always replaced last so they cannot be overridden by DOCTYPE. */
 const defaultXmlEntities = {

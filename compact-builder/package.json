@@ -1,6 +1,6 @@
 {
   "name": "@nodable/compact-builder",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Compact JS Object builder for flexible-xml-parser",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
@@ -19,9 +19,12 @@
   "files": [
     "src"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@nodable/base-output-builder": "file:../base-output-builder",
-    "path-expression-matcher": "^1.4.0"
+    "@nodable/base-output-builder": "^1.0.2",
+    "path-expression-matcher": "^1.5.0"
   },
   "funding": [
     {
