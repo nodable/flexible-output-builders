@@ -23,7 +23,7 @@ export default class CompactBuilderFactory extends BaseOutputBuilderFactory {
   // }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValParsers();
+    this.resetValueParsers();
     const valParsers = { ...this.commonValParsers };
     return new CompactBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
   }

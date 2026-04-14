@@ -10,7 +10,7 @@ export default class SequentialBuilderFactory extends BaseOutputBuilderFactory {
   }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValParsers();
+    this.resetValueParsers();
     const valParsers = { ...this.commonValParsers };
     return new SequentialBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
   }

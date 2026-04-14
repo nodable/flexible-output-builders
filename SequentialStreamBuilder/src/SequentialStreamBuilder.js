@@ -80,7 +80,7 @@ export default class SequentialStreamBuilderFactory extends BaseOutputBuilderFac
   }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValParsers();
+    this.resetValueParsers();
     const valParsers = { ...this.commonValParsers };
 
     // Each parse run gets its own builder instance, with a fresh emit function

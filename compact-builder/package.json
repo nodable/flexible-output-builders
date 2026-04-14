@@ -1,6 +1,6 @@
 {
   "name": "@nodable/compact-builder",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Compact JS Object builder for flexible-xml-parser",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",

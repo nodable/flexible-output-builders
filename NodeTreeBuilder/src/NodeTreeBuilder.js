@@ -17,7 +17,7 @@ export default class NodeTreeBuilderFactory extends BaseOutputBuilderFactory {
   // }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValParsers();
+    this.resetValueParsers();
     const valParsers = { ...this.commonValParsers };
     return new NodeTreeBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
   }

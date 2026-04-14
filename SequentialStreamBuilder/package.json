@@ -1,6 +1,6 @@
 {
   "name": "@nodable/sequential-stream-builder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Sequential JS Array stream builder for flexible-xml-parser",
   "main": "src/index.js",
   "types": "./src/index.d.ts",
