@@ -1,4 +1,4 @@
-import EntitiesValueParser from './ValueParsers/EntityParser/EntitiesValueParser.js';
+import EntityReplacer from '@nodable/entities';
 import trimParser from './ValueParsers/trim.js';
 import booleanParser from './ValueParsers/booleanParser.js';
 import numberParser from './ValueParsers/number.js';
@@ -168,7 +168,7 @@ export default class BaseOutputBuilder {
 
 export function commonValueParsers() {
   return {
-    "entity": new EntitiesValueParser({ default: true }),
+    "entity": new EntityReplacer({ default: true }),
     "trim": new trimParser(),
     "boolean": new booleanParser(),
     "number": new numberParser({ hex: true, leadingZeros: true, eNotation: true }),

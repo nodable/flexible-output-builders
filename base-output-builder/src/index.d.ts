@@ -233,6 +233,11 @@ export interface BaseOutputBuilderFactory {
    * @param parser - Value parser instance
    */
   registerValueParser(name: string, parser: ValueParser): void;
+
+  /**
+   * Resets all the value parsers to their initial state
+   */
+  resetValueParsers(): void;
 }
 
 /**

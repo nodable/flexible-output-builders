@@ -1,6 +1,6 @@
 {
   "name": "@nodable/base-output-builder",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Base output builder for flexible-xml-parser",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
@@ -22,6 +22,7 @@
     "src"
   ],
   "dependencies": {
+    "@nodable/entities": "^1.1.0",
     "strnum": "^2.2.2"
   },
   "funding": [
@@ -32,6 +33,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nodable/flexible-output-builder.git"
+    "url": "git+https://github.com/nodable/flexible-output-builders.git"
   }
 }

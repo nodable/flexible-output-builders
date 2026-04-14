@@ -12,7 +12,15 @@ export default class BaseOutputBuilderFactory {
   }
 
   getInstance(parserOptions, readonlyMatcher) {
-    const valParsers = { ...this.commonValParsers };
-    return new BaseOutputBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
+    this.resetValueParsers();
+    return new BaseOutputBuilder(parserOptions, readonlyMatcher, this.commonValParsers);
+  }
+
+  resetValueParsers() {
+    for (const parser of Object.values(this.commonValParsers)) {
+      if (parser && parser.reset) {
+        parser.reset();
+      }
+    }
   }
 }
