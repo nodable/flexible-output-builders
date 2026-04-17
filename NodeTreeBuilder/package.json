@@ -1,6 +1,6 @@
 {
   "name": "@nodable/node-tree-builder",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Node tree JS Object Sequential builder for flexible-xml-parser",
   "main": "src/index.js",
   "types": "./src/index.d.ts",
@@ -22,7 +22,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@nodable/base-output-builder": "^1.0.3"
+    "@nodable/base-output-builder": "^1.0.4"
   },
   "funding": [
     {

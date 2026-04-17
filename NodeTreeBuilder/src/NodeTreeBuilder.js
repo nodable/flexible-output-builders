@@ -3,7 +3,6 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
 import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@nodable/base-output-builder';
 
-const rootName = '!js_arr';
 
 export default class NodeTreeBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
@@ -41,7 +40,7 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
 
     this.registeredValParsers = registeredValParsers;
 
-    this.root = new Node(rootName, this.options);
+    this.root = new Node(this._rootName, this.options);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
