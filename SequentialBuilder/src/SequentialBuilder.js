@@ -1,7 +1,6 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
 import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@nodable/base-output-builder';
 
-const rootName = '!sequential_root';
 
 export default class SequentialBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
@@ -34,7 +33,7 @@ export class SequentialBuilder extends BaseOutputBuilder {
 
     this.registeredValParsers = registeredValParsers;
 
-    this.root = new Node(rootName, this.options);
+    this.root = new Node(this._rootName, this.options);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
