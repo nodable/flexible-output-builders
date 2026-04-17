@@ -1,6 +1,6 @@
 {
   "name": "@nodable/base-output-builder",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Base output builder for flexible-xml-parser",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
