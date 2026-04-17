@@ -2,8 +2,6 @@ import { buildOptions } from './ParserOptionsBuilder.js';
 import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@nodable/base-output-builder';
 import { Expression } from 'path-expression-matcher';
 
-const rootName = '^';
-
 export default class CompactBuilderFactory extends BaseOutputBuilderFactory {
   constructor(builderOptions) {
     super()
@@ -76,7 +74,7 @@ export class CompactBuilder extends BaseOutputBuilder {
 
     this.root = {};
     this.parent = this.root;
-    this.tagName = rootName;
+    this.tagName = this._rootName;
     this.value = {};
     this.textValue = "";
     this.attributes = {};
