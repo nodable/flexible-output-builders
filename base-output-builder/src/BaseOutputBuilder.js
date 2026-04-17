@@ -1,4 +1,4 @@
-import EntityReplacer from '@nodable/entities';
+import EntityDecoder from './ValueParsers/EntityDecoder.js';
 import trimParser from './ValueParsers/trim.js';
 import booleanParser from './ValueParsers/booleanParser.js';
 import numberParser from './ValueParsers/number.js';
@@ -19,6 +19,7 @@ export default class BaseOutputBuilder {
 
   constructor(readonlyMatcher) {
     this.matcher = readonlyMatcher || null;
+    this._rootName = "^";
   }
 
   /**
@@ -30,6 +31,10 @@ export default class BaseOutputBuilder {
    * @param {object}  matcher - read-only Matcher proxy from the parser
    */
   addAttribute(name, value, matcher) {
+    //attributes of instruction
+    if (name === "version" && this.tagName === this._rootName) {
+      setToEntityParser(this.registeredValParsers, "setXmlVersion", +value);
+    }
     const prefixed = this.options.attributes.prefix + name + this.options.attributes.suffix;
     const context = {
       elementName: name,
@@ -127,11 +132,7 @@ export default class BaseOutputBuilder {
    * @param {object} entities — raw entity map from DocTypeReader
    */
   addInputEntities(entities) {
-    for (const vp of Object.values(this.registeredValParsers)) {
-      if (typeof vp.addInputEntities === 'function') {
-        vp.addInputEntities(entities);
-      }
-    }
+    setToEntityParser(this.registeredValParsers, "addInputEntities", entities);
   }
 
   /**
@@ -139,6 +140,7 @@ export default class BaseOutputBuilder {
    * Dropped when skip.declaration is true.
    */
   addDeclaration(name) {
+
     this.addInstruction(name);
   }
 
@@ -166,9 +168,17 @@ export default class BaseOutputBuilder {
   onExit(exitInfo) { }
 }
 
+function setToEntityParser(parsers, fnName, param) {
+  for (const vp of Object.values(parsers)) {
+    if (typeof vp[fnName] === 'function') {
+      vp[fnName](param);
+    }
+  }
+}
+
 export function commonValueParsers() {
   return {
-    "entity": new EntityReplacer({ default: true }),
+    "entity": new EntityDecoder(),
     "trim": new trimParser(),
     "boolean": new booleanParser(),
     "number": new numberParser({ hex: true, leadingZeros: true, eNotation: true }),

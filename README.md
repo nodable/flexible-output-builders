@@ -197,27 +197,53 @@ builder.registerValueParser('number', customNumber);
 
 ## Entity Parsing
 
-The entity parser supports four types of entities:
+By default [@nodable/entities](https://github.com/nodable/val-parsers/blob/main/Entity/docs/EntityDecoder.md) is used to decode entities. You can set any of entity parser of your choice provided that it supports following methods or create a wrapper around.
 
-1. **Default (XML)** - Built-in XML entities (lt, gt, apos, quot, amp)
-2. **HTML** - HTML named entities and numeric references
-3. **DOCTYPE** - Entities defined in DOCTYPE declarations
-4. **External** - Programmatically registered entities
+```js
+type EntityDecoder = {
+  setExternalEntities: (entities: Record<string, string>) => void;
+  addInputEntities: (entities: Record<string, string>) => void;
+  reset: () => void;
+  parse: (text: string) => string;
+  setXmlVersion: (version: string) => void;
+}
+```
 
-```javascript
-import { EntitiesValueParser } from "@nodable/base-output-builder";
+Base Output Builder register an instance of `EntityDecoder` from `@nodable/entities` with `entity`. You should either overwrite it if you're changing the default config.
 
-const entityParser = new EntitiesValueParser({
-  default: true,          // Enable XML entities
-  html: false,            // Disable HTML entities
-  external: true,         // Enable external entities
-  maxTotalExpansions: 1000,     // Security limit
-  maxExpandedLength: 10000      // Security limit
+```js
+class EntityParser extends EntityDecoder {
+  constructor(options) {
+    super(options);
+  }
+
+  parse(val) {
+    if (typeof val === 'string') {
+      val = this.decode(val);
+    }
+    return val;
+  }
+
+  setXmlVersion(v) {
+    super.setXmlVersion(Number(v));
+  }
+}
+
+const evp = new EntityParser({ ncr: { onNcr: 'allow' } });
+const builder = new CompactBuilderFactory({
+  // attributes: { valueParsers: ['entity'] }
+  attributes: { valueParsers: [evp] }
 });
 
-entityParser.addEntity('copy', '©');
-entityParser.addEntity('brand', 'MyCompany');
+builder.registerValueParser("entity", evp);
+
+const parser = new XMLParser({
+  skip: { attributes: false },
+  OutputBuilder: builder,
+});
+const result = parser.parse(`<?xml version="1.0"?><root label="&#x1;2024"/>`);
 ```
+
 
 ## Builder Comparison
 
@@ -274,5 +300,5 @@ MIT © [Amit Gupta](https://nodable.com)
 ## Author
 
 **Amit Gupta**
-- Website: [nodable.com](https://nodable.com)
+- Website: [solothought.com](https://solothought.com)
 - GitHub: [@nodable](https://github.com/nodable)

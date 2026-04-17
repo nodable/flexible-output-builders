@@ -52,7 +52,7 @@ class MyBuilder extends BaseOutputBuilder {
   getOutput() { }
 }
 
-describe("Entity Parser", function () {
+describe("Value Parser", function () {
 
   it("should not reset counter", () => {
     class MyBuilderFactory extends BaseOutputBuilderFactory {

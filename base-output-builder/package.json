@@ -22,7 +22,7 @@
     "src"
   ],
   "dependencies": {
-    "@nodable/entities": "^1.1.0",
+    "@nodable/entities": "^2.1.0",
     "strnum": "^2.2.2"
   },
   "funding": [
