@@ -86,7 +86,14 @@ export interface FactoryOptions {
 }
 
 
-export interface CompactBuilder {
+export class CompactBuilder {
+  constructor(
+    parserOptions: FactoryOptions,
+    builderOptions: FactoryOptions,
+    registeredValParsers: Record<string, ValueParser>,
+    readonlyMatcher: unknown,
+  );
+
   addElement(tag: { name: string }, matcher: any): void;
   closeElement(matcher: any): void;
   addValue(text: string, matcher: any): void;
@@ -114,6 +121,13 @@ export interface CompactBuilder {
     rawContent: string,
     matcher: any,
   ): void;
+
+  protected tagsStack: Array<[string, string, unknown]>;
+  protected tagName: string;
+  protected value: Record<string, unknown> | string;
+  protected attributes: Record<string, unknown>;
+  protected textValue: string;
+  protected options: FactoryOptions;
 }
 
 /**
@@ -130,6 +144,9 @@ export interface ValueParser {
 
 export class CompactBuilderFactory implements OutputBuilderFactory {
   constructor(options?: Partial<FactoryOptions>);
-  getInstance(factoryOptions: FactoryOptions): CompactBuilder;
+  getInstance(
+    parserOptions: FactoryOptions,
+    readonlyMatcher: unknown,
+  ): CompactBuilder;
   registerValueParser(name: string, parser: ValueParser): void;
 }
