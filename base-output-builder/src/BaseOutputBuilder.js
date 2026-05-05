@@ -1,4 +1,4 @@
-import EntityDecoder from './ValueParsers/EntityDecoder.js';
+import EntityParser from './ValueParsers/EntityParser.js';
 import trimParser from './ValueParsers/trim.js';
 import booleanParser from './ValueParsers/booleanParser.js';
 import numberParser from './ValueParsers/number.js';
@@ -178,7 +178,7 @@ function setToEntityParser(parsers, fnName, param) {
 
 export function commonValueParsers() {
   return {
-    "entity": new EntityDecoder(),
+    "entity": new EntityParser(),
     "trim": new trimParser(),
     "boolean": new booleanParser(),
     "number": new numberParser({ hex: true, leadingZeros: true, eNotation: true }),
