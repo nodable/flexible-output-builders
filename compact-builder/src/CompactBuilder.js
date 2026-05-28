@@ -78,22 +78,38 @@ export class CompactBuilder extends BaseOutputBuilder {
     this.value = {};
     this.textValue = "";
     this.attributes = {};
+    this.hasAttributes = false;
+  }
+
+  /**
+   * Builds the initial value object from the current attributes and sets
+   * `this.hasAttributes` accordingly. Returns "" when there are no attributes.
+   *
+   * Centralises the duplicated attribute-grouping logic so that callers
+   * (addElement, addInstruction) stay concise and closeElement() can rely on
+   * the flag instead of re-inspecting value keys or prefixes.
+   *
+   * @returns {object|string} Attribute object, or "" when no attributes exist.
+   */
+  _buildAttributeValue() {
+    if (isEmpty(this.attributes)) {
+      this.hasAttributes = false;
+      return "";
+    }
+    this.hasAttributes = true;
+    if (this.options.attributes.groupBy) {
+      return { [this.options.attributes.groupBy]: this.attributes };
+    }
+    return this.attributes; // no spread needed — this.attributes is reassigned to {} right after
   }
 
   addElement(tag) {
-    let value = "";
-    if (!isEmpty(this.attributes)) {
-      if (this.options.attributes.groupBy) {
-        value = { [this.options.attributes.groupBy]: this.attributes };
-      } else {
-        value = this.attributes;
-      }
-    }
+    const value = this._buildAttributeValue();
 
     // Push current tag's value-tree state so closeElement() can restore it.
     // tagName is included so the builder is self-contained — callers do not
     // need to pass the name back in on close.
-    this.tagsStack.push([this.tagName, this.textValue, this.value]);
+    this.tagsStack.push([this.tagName, this.textValue, this.value, this.hasAttributes]);
     this.tagName = tag.name;
     this.value = value;
     this.textValue = "";
@@ -154,31 +170,18 @@ export class CompactBuilder extends BaseOutputBuilder {
 
   closeElement() {
     const tagName = this.tagName;
-    let value = this.value;
+    let value = this.value; // contains attributes if not skipped
     const textValue = this.textValue;
+    const hasAttributes = this.hasAttributes;
 
     // A tag is a leaf node if it has no child elements.
     // It can have attributes and still be a leaf node.
-    let isLeafNode;
-    if (typeof value !== "object" || Array.isArray(value)) {
-      // Empty string or unexpected array → treat as leaf
-      isLeafNode = true;
-    } else if (isEmpty(value)) {
-      // Empty object → no attributes, no children → leaf
-      isLeafNode = true;
-    } else {
-      // Check if value contains ONLY attribute keys (no child elements)
-      const attrPrefix = this.options.attributes.prefix;
-      const attrGroupBy = this.options.attributes.groupBy;
-
-      if (attrGroupBy) {
-        // Attributes are grouped under a single key
-        isLeafNode = Object.keys(value).length === 1 && value.hasOwnProperty(attrGroupBy);
-      } else {
-        // Attributes have a prefix (default "@_")
-        isLeafNode = Object.keys(value).every(k => k.startsWith(attrPrefix));
-      }
-    }
+    // hasAttributes is tracked explicitly by _buildAttributeValue() so we never
+    // need to reverse-engineer this from key names, prefixes, or groupBy keys.
+    const isLeafNode = typeof value !== "object"  // plain string value (no attrs, no children)
+      || Array.isArray(value)                      // unexpected array → treat as leaf
+      || isEmpty(value)                            // no attributes, no children
+      || hasAttributes;                            // only attributes present, no child elements yet
 
     const context = {
       elementName: tagName,
@@ -188,36 +191,34 @@ export class CompactBuilder extends BaseOutputBuilder {
       isLeafNode: isLeafNode,
     };
 
-
     if (isLeafNode) {
-      // Leaf node: parse the text value
       const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
 
-      if (this.options.forceTextNode) {
-        // forceTextNode: always create object with #text, merge any existing attributes
-        if (typeof value === 'object' && !isEmpty(value)) {
-          // Has attributes - merge text node into the attributes object
+      if (hasAttributes) {
+        // Attributes are present — value is already an object.
+        // Only write the text node when there is actual text content; an empty
+        // parsedText alongside attributes would produce a spurious #text:"" key.
+        // forceTextNode overrides this and writes the node even when empty.
+        if (parsedText !== "" && parsedText !== null && parsedText !== undefined) {
           value[this.options.nameFor.text] = parsedText;
-        } else {
-          // No attributes - create new object with just text node
-          value = { [this.options.nameFor.text]: parsedText };
+        } else if (this.options.forceTextNode) {
+          value[this.options.nameFor.text] = parsedText;
         }
+      } else if (this.options.forceTextNode) {
+        // No attributes — wrap in an object so the shape is always consistent
+        value = { [this.options.nameFor.text]: parsedText };
       } else {
-        // Normal mode: if no attributes, use plain value; otherwise add text node
-        if (typeof value === 'object' && !isEmpty(value)) {
-          // Has attributes - add text node
-          value[this.options.nameFor.text] = parsedText;
-        } else {
-          // No attributes - use plain parsed value
-          value = parsedText;
-        }
+        // No attributes, no forceTextNode — use the plain parsed value
+        value = parsedText;
       }
+    } else if (textValue.length > 0) {
+      // Non-leaf node with actual text content sitting between child elements
+      const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
+      value[this.options.nameFor.text] = parsedText;
     } else if (textValue.length > 0 || this.options.forceTextNode) {
-      // Non-leaf node: add text node if there's text OR if forceTextNode is enabled
       const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
       value[this.options.nameFor.text] = parsedText;
     }
-
 
     let resultTag = { tagName, value };
 
@@ -237,6 +238,7 @@ export class CompactBuilder extends BaseOutputBuilder {
     this.tagName = arr[0];
     this.textValue = arr[1];
     this.value = parentTag;
+    this.hasAttributes = arr[3]; // restore parent tag's flag
   }
 
   _addChild(key, val) {
@@ -249,7 +251,6 @@ export class CompactBuilder extends BaseOutputBuilder {
 
   _addChildTo(key, val, node, forceArray) {
     if (typeof node === 'string') node = {};
-
 
     if (!Object.prototype.hasOwnProperty.call(node, key)) {
       // First occurrence of this key
@@ -311,14 +312,7 @@ export class CompactBuilder extends BaseOutputBuilder {
   }
 
   addInstruction(name) {
-    let value = "";
-    if (!isEmpty(this.attributes)) {
-      if (this.options.attributes.groupBy) {
-        value = { [this.options.attributes.groupBy]: this.attributes };
-      } else {
-        value = this.attributes;
-      }
-    }
+    const value = this._buildAttributeValue();
     this._addChild(name, value);
     this.attributes = {};
   }
