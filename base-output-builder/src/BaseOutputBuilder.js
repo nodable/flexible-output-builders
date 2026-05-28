@@ -32,7 +32,7 @@ export default class BaseOutputBuilder {
    */
   addAttribute(name, value, matcher) {
     //attributes of instruction
-    if (name === "version" && this.tagName === this._rootName) {
+    if (name === "version" && this.tagName === this._rootName) { //TODO: use parser.xmlVersion instead
       setToEntityParser(this.registeredValParsers, "setXmlVersion", +value);
     }
     const prefixed = this.options.attributes.prefix + name + this.options.attributes.suffix;
