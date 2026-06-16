@@ -220,7 +220,7 @@ export interface BaseOutputBuilderInterface {
   registeredValParsers: Record<string, ValueParser>;
 }
 
-export interface BaseOutputBuilderFactory {
+export class BaseOutputBuilderFactory {
   /**
    * Called by XML Parser to get an instance of the output builder
    * @param parserOptions 
