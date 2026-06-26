@@ -19,23 +19,28 @@ import {
   frunAcrossAllInputSourcesWithFactory
 } from "../../test-helpers/testRunner.js";
 import numberParser from "../src/ValueParsers/number.js";
+import { ValueParserPipeline } from "../src/ValueParser.js";
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 // Build a custom OutputBuilder factory from a CompactObjBuilder subclass.
 // The factory wrapper is what XMLParser receives as options.OutputBuilder.
 function makeFactory(BuilderSubclass) {
   return {
-    getInstance(parserOptions) {
+    getInstance(parserOptions, readonlyMatcher) {
+      // Use the real factory to get fully resolved options (with _alwaysArraySet etc.)
+      // and the correctly populated registry.
       const base = new CompactBuilderFactory();
-      const valParsers = {
-        ...base.registeredValParsers,
-        "number": new numberParser()
-      };
-      return new BuilderSubclass(parserOptions, base.options, valParsers);
-    },
-    // registerValueParser(name, parser) {
-    //   // no-op for test factories
-    // },
+
+      // If you want a custom number parser for tests, override here
+      base.registerValueParser("number", new numberParser());
+
+      return new BuilderSubclass(
+        parserOptions,
+        base.builderOptions,
+        readonlyMatcher,
+        base.registry,
+      );
+    }
   };
 }
 

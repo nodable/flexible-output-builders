@@ -12,10 +12,12 @@ npm install @nodable/compact-builder
 
 ```javascript
 import XMLParser from "@nodable/flexible-xml-parser";
-import CompactBuilder from "@nodable/compact-builder";
+import CompactBuilderFactory from "@nodable/compact-builder";
+
+const cobOpts = {};
 
 const parser = new XMLParser({
-  OutputBuilder: new CompactBuilder()
+  OutputBuilder: new CompactBuilderFactory(cobOpts)
 });
 
 const result = parser.parse('<root><item>value</item></root>');
@@ -37,14 +39,14 @@ Forces specific XML tags to always be represented as arrays, even when only a si
 
 ```js
 import XMLParser from "@nodable/flexible-xml-parser"
-import CompactBuilder from "@nodable/compact-builder"
+import CompactBuilderFactory from "@nodable/compact-builder"
 
 const inputXml = `<catalog><book>Title</book></catalog>`;
 
 const parser = new XMLParser({
-  OutputBuilder: new CompactBuilder({
+  OutputBuilder: new CompactBuilderFactory({
     forceArray: (matcher, isLeafNode) => {
-      return matcher.path.endsWith('catalog.book');
+      return matcher.toString().endsWith('catalog.book');
     }
   }),
 });
@@ -57,12 +59,11 @@ Output
 {
   "catalog": {
     "book": [
-      {
-        "title": "Title"
-      }
+      "Title"
     ]
   }
 }
+
 ```
 
 ### 2. `alwaysArray` Option
@@ -78,10 +79,12 @@ Forces specific XML tags to always be represented as arrays, even when only a si
 - Supports path-based, attribute-based, and leaf-node-based decisions
 
 ```js
+import { Expression } from 'path-expression-matcher';
+
 const inputXml = `<catalog><book>Title</book></catalog>`;
 
 const parser = new XMLParser({
-  OutputBuilder: new CompactBuilder({
+  OutputBuilder: new CompactBuilderFactory({
     alwaysArray: ["..item", new Expression('root.product')]
   }),
 });
@@ -93,11 +96,7 @@ Output
 ```json
 {
   "catalog": {
-    "book": [
-      {
-        "title": "Title"
-      }
-    ]
+    "book": "Title"
   }
 }
 ```
@@ -121,7 +120,7 @@ Forces creation of a text node object for every tag, ensuring consistent object 
 const inputXml = `<item>Value</item>`;
 
 const parser = new XMLParser({
-  OutputBuilder: new CompactBuilder({
+  OutputBuilder: new CompactBuilderFactory({
     forceTextNode: true //false by default
   }),
 });
@@ -134,5 +133,28 @@ const result = parser.parse(inputXml);
 
 Output
 ```js
-{ item: { "#text": "Value" } }
+{
+  "item": {
+    "#text": "Value"
+  }
+}
 ```
+
+### 4. `textJoint` Option
+
+**Type:** `string` (default: `''`)
+
+String inserted between text chunks when a tag accumulates multiple text segments (e.g. text interspersed with comments or CDATA).
+
+```js
+const parser = new XMLParser({
+  OutputBuilder: new CompactBuilderFactory({
+    textJoint: ' '
+  }),
+});
+```
+---
+
+### Other Options
+
+`skip`, `nameFor`, and `attributes` are parser-level options documented in `@nodable/flexible-xml-parser`. They are passed through to the parser unchanged.

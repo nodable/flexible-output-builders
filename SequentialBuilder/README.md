@@ -2,14 +2,37 @@
 
 Produces a sequential array where every element is represented as an object with the **tag name directly as a key** pointing to its children array. There is no separate `elementname` property — the structure is array-first throughout.
 
+## Install
+
+```bash
+npm install @nodable/sequential-builder
+```
+
+## Usage
+
+```js
+import XMLParser from "@nodable/flexible-xml-parser";
+import { SequentialBuilderFactory } from "@nodable/sequential-builder";
+
+const parser = new XMLParser({
+  OutputBuilder: new SequentialBuilderFactory(builderOptions),
+  ...parserOptions,
+});
+
+const result = parser.parse(xmlString);
+// result is always an array
+```
+
+---
+
 ## Output structure
 
 ```
-[                          ← getOutput() always returns an array
+[                              ← getOutput() always returns an array
   {
-    [tagName]: Array,      ← tag name → children array (always present, empty for leaf/empty nodes)
-    [groupBy]?: object,    ← attributes as a sibling property (only when non-empty)
-    text?: any             ← only present on leaf nodes (no child element entries)
+    [tagName]: Array,          ← tag name → children array (always present, even when empty)
+    [groupBy]?: object,        ← attributes as a sibling property (only when non-empty)
+    text?: any                 ← only present on leaf nodes (no child element entries)
   }
 ]
 ```
@@ -62,7 +85,7 @@ Output:
 ]
 ```
 
-## Basic example
+### Basic example
 
 Input:
 ```xml
@@ -84,97 +107,13 @@ Output:
 ]
 ```
 
-## Install
-
-```bash
-npm install @nodable/sequential-builder
-```
-
-## Usage
-
-```js
-import XMLParser from "@nodable/flexible-xml-parser";
-import {SequentialBuilderFactory} from "@nodable/sequential-builder";
-
-const parser = new XMLParser({
-  OutputBuilder: new SequentialBuilderFactory(builderOptions),
-  ...parserOptions,
-});
-
-const result = parser.parse(xmlString);
-// result is always an array
-```
+---
 
 ## Options
 
-### `attributes.groupBy` (default: `"attributes"`)
-
-The property name under which all attributes are collected as a sibling alongside the tag key. The property is **only present** when attributes exist and `skip.attributes` is false.
-
-```js
-new SequentialBuilderFactory({
-  attributes: { groupBy: "attributes" }  // default
-})
-```
-
-To use a custom key:
-
-```js
-new SequentialBuilderFactory({
-  attributes: { groupBy: ":@" }
-})
-```
-
-### `nameFor.text` (default: `"#text"`)
-
-The key used for inline text entries inside the children array when a node has mixed content (text interleaved with child elements).
-
-```js
-new SequentialBuilderFactory({
-  nameFor: { text: ":text" }
-})
-```
-
-### `nameFor.comment`
-
-When `skip.comment` is false, this property name is used for comment entries in the children array.
-
-```js
-new SequentialBuilderFactory({
-  nameFor: { comment: "#comment" }
-})
-```
-
-### `nameFor.cdata`
-
-When set, CDATA sections appear as `{ [cdata]: value }` entries in the children array. When unset (default), CDATA content is merged into the node's `text` value (same as regular text).
-
-```js
-// builder config
-const builderConfig = { nameFor: { cdata: "##cdata" } };
-// parser config
-const parserConfig  = { skip: { cdata: false } };
-
-const parser = new XMLParser({
-  OutputBuilder: new SequentialBuilderFactory(builderConfig),
-  ...parserConfig,
-});
-```
-
-Output for `<root><code><![CDATA[data]]></code></root>`:
-```js
-[
-  {
-    root: [
-      {
-        code: [
-          { "##cdata": "data" }
-        ]
-      }
-    ]
-  }
-]
-```
+> **Parser-level options** (`skip`, `nameFor`, `attributes.groupBy`, `attributes.prefix`,
+> `attributes.suffix`) are configured on the XML parser, not the builder factory.
+> See the `@nodable/flexible-xml-parser` documentation for those options.
 
 ### `textInChild` (default: `false`)
 
@@ -189,26 +128,63 @@ Input:
 <root><a>hello</a></root>
 ```
 
-Default output (`textInChild: false`):
+Default (`textInChild: false`):
 ```js
 [ { root: [ { a: [], text: "hello" } ] } ]
 ```
 
-Output with `textInChild: true`:
+With `textInChild: true`:
 ```js
 [ { root: [ { a: [ { "#text": "hello" } ] } ] } ]
 ```
 
-### `skip.attributes` (default: `true`)
+### `tags.valueParsers`
 
-When `true` (default), all attributes are ignored and no `attributes` property appears on entries. Set to `false` to populate attributes.
-
-### Value parsers
-
-By default the parser chain `["entity", "boolean", "number"]` is applied to text content, converting `"42"` → `42` and `"true"` → `true`. Override with `tags.valueParsers`.
+Value parser chain applied to tag text content. Default: `['ws', 'entity', 'boolean', 'number']`.
 
 ```js
 new SequentialBuilderFactory({
   tags: { valueParsers: [] }   // keep all values as raw strings
 })
 ```
+
+### `attributes.valueParsers`
+
+Value parser chain applied to attribute values. Default: `['entity', 'number', 'boolean']`.
+
+### `tags.stopNodes`
+
+Tag names (or path expressions) at which the parser stops descending and returns the raw inner text unparsed.
+
+```js
+new SequentialBuilderFactory({
+  tags: { stopNodes: ["..script", "..style"] }
+})
+```
+
+### `onStopNode`
+
+Called when a stop node is fully collected, before its raw content is stored.
+
+```js
+new SequentialBuilderFactory({
+  tags: { stopNodes: ["..script"] },
+  onStopNode: (tagDetail, rawContent, matcher) => {
+    console.log(`<${tagDetail.name}> at line ${tagDetail.line}: ${rawContent.length} chars`);
+  }
+})
+```
+
+### `onClose`
+
+Called when any tag closes, before its entry is pushed to the parent's children array. Return a truthy value to suppress the entry entirely (drop the tag from output).
+
+```js
+new SequentialBuilderFactory({
+  onClose: (node, matcher) => {
+    if (node.tagname === "internal") return true; // drop
+  }
+})
+```
+
+The `node` argument is the fully-built internal node with `tagname`, `children`, `text`, and the attributes groupBy key.

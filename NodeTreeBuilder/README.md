@@ -1,107 +1,6 @@
 # Node Tree Output Builder
 
-Produces a sequential node tree where each element has three fixed properties — `tagname`, `child`, and `attributes` — plus an optional `text` property for leaf nodes.
-
-## Node structure
-
-```
-{
-  tagname: string,      // element name
-  child: array,         // ordered child nodes (always present, empty for leaf nodes)
-  attributes: object,   // always present; populated when skip.attributes is false
-  text?: any            // only present on leaf nodes (no child elements)
-}
-```
-
-### Leaf node (text only, no child elements)
-
-```js
-{ tagname: "span", child: [], attributes: {}, text: "Hello" }
-```
-
-### Empty tag (no text, no children)
-
-```js
-{ tagname: "br", child: [], attributes: {} }
-```
-
-### Tag with child elements
-
-```js
-{ tagname: "div", child: [ /* child nodes */ ], attributes: {} }
-```
-
-### Mixed content (text interleaved with child elements)
-
-Inline text runs appear as `{ ":text": value }` entries inside the `child` array. The parent node has no `text` property in this case.
-
-Input:
-```xml
-<p>Hello <b>world</b>!</p>
-```
-
-Output:
-```js
-{
-  tagname: "p",
-  child: [
-    { ":text": "Hello " },
-    { tagname: "b", child: [], attributes: {}, text: "world" },
-    { ":text": "!" }
-  ],
-  attributes: {}
-}
-```
-
-#### textInChild
-
-However, if `textInChild` is set to `true` then text is always inserted in child.
-
-
-Input:
-```xml
-<p>Hello <b>world</b>!</p>
-```
-
-Output:
-```js
-{
-  tagname: "p",
-  child: [
-    { ":text": "Hello " },
-    { tagname: "b", child: [
-      { ":text": "world" }
-      ], attributes: {}},
-    { ":text": "!" }
-  ],
-  attributes: {}
-}
-```
-
-
-## Basic example
-
-Input:
-```xml
-<root>
-  <child>hello</child>
-  <child>world</child>
-</root>
-```
-
-Output:
-```js
-{
-  tagname: "root",
-  child: [
-    { tagname: "child", child: [], attributes: {}, text: "hello" },
-    { tagname: "child", child: [], attributes: {}, text: "world" }
-  ],
-  attributes: {}
-}
-```
-
-The fixed structure lets you traverse the tree without defensive property checks.
+Produces a node tree where each element has three fixed properties — `elementname`, `child`, and `[groupBy]` — plus an optional `text` property for leaf nodes.
 
 ## Install
 
@@ -123,86 +22,143 @@ const parser = new XMLParser({
 const result = parser.parse(xmlString);
 ```
 
+## Node structure
+
+```
+{
+  elementname: string,  // element name
+  child: array,         // ordered child nodes (always present, empty for leaf nodes)
+  [groupBy]: object,    // attributes (always present; key defaults to "attributes")
+  text?: any            // only present on leaf nodes (no child elements)
+}
+```
+
+### Leaf node (text only, no child elements)
+
+```js
+{ elementname: "span", child: [], attributes: {}, text: "Hello" }
+```
+
+### Empty tag (no text, no children)
+
+```js
+{ elementname: "br", child: [], attributes: {} }
+```
+
+### Tag with child elements
+
+```js
+{ elementname: "div", child: [ /* child nodes */ ], attributes: {} }
+```
+
+### Mixed content (text interleaved with child elements)
+
+Inline text runs appear as `{ "#text": value }` entries inside the `child` array. The parent node has no `text` property in this case.
+
+Input:
+```xml
+<p>Hello <b>world</b>!</p>
+```
+
+Output:
+```js
+{
+  elementname: "p",
+  child: [
+    { "#text": "Hello " },
+    { elementname: "b", child: [], attributes: {}, text: "world" },
+    { "#text": "!" }
+  ],
+  attributes: {}
+}
+```
+
+### `textInChild`
+
+When `textInChild: true`, text is always stored as a `{ [nameFor.text]: value }` child entry — even on pure leaf nodes. The `text` property is never set in this mode.
+
+Input:
+```xml
+<p>Hello <b>world</b>!</p>
+```
+
+Output:
+```js
+{
+  elementname: "p",
+  child: [
+    { "#text": "Hello " },
+    { elementname: "b", child: [ { "#text": "world" } ], attributes: {} },
+    { "#text": "!" }
+  ],
+  attributes: {}
+}
+```
+
+## Basic example
+
+Input:
+```xml
+<root>
+  <child>hello</child>
+  <child>world</child>
+</root>
+```
+
+Output:
+```js
+{
+  elementname: "root",
+  child: [
+    { elementname: "child", child: [], attributes: {}, text: "hello" },
+    { elementname: "child", child: [], attributes: {}, text: "world" }
+  ],
+  attributes: {}
+}
+```
+
+The fixed structure lets you traverse the tree without defensive property checks.
+
+---
+
 ## Options
 
-### `attributes.groupBy` (default: `"attributes"`)
+> **Parser-level options** (`skip`, `nameFor`, `attributes.groupBy`, `attributes.prefix`,
+> `attributes.suffix`) are configured on the XML parser, not the builder factory.
+> See the `@nodable/flexible-xml-parser` documentation for those options.
 
-The property name under which all attributes are collected. The property is **always** present on every node, even when empty.
+### `textInChild` (default: `false`)
+
+When `true`, text is always stored as a `{ [nameFor.text]: value }` child entry — even on pure leaf nodes. See the example above.
+
+```js
+new NodeTreeBuilderFactory({ textInChild: true })
+```
+
+### `tags.valueParsers`
+
+Value parser chain applied to tag text content. Default: `['ws', 'entity', 'boolean', 'number']`.
 
 ```js
 new NodeTreeBuilderFactory({
-  attributes: { groupBy: "attributes" }  // default
+  tags: { valueParsers: [] }  // keep all values as raw strings
 })
 ```
 
-To use a custom key:
+### `attributes.valueParsers`
+
+Value parser chain applied to attribute values. Default: `['entity', 'number', 'boolean']`.
+
+### `onClose`
+
+Called when any tag closes, before its node is pushed to the parent's `child` array. Return a truthy value to drop the node from output entirely.
 
 ```js
 new NodeTreeBuilderFactory({
-  attributes: { groupBy: ":@" }
+  onClose: (node, matcher) => {
+    if (node.elementname === 'internal') return true; // drop
+  }
 })
 ```
 
-### `nameFor.text` (default: `"#text"`)
-
-The key used for inline text entries inside `child` when a node has mixed content.
-
-```js
-new NodeTreeBuilderFactory({
-  nameFor: { text: ":text" }
-})
-```
-
-### `nameFor.comment`
-
-When skip.comment is false, this property is used to name the comment nodes.
-
-
-### `nameFor.cdata` (default: `""`)
-
-input: 
-```xml
-<root><code><![CDATA[data]]></code></root>
-```
-
-```js
-const builderConfig = { nameFor: { cdata: "##cdata" } }
-const parserConfig =  { skip: { cdata: false } }
-
-const parser = new XMLParser({
-  OutputBuilder: new NodeTreeBuilderFactory(builderConfig),
-  ...parserConfig,
-});
-
-const result = parser.parse(xmlString);
-```
-
-Output
-```js
- {
-        "tagname": "root",
-        "child": [
-          {
-            "tagname": "code",
-            "child": [
-              {
-                "tagname": "##cdata",
-                "child": [],
-                "attributes": {},
-                "text": "data"
-              }
-            ],
-            "attributes": {}
-          }
-        ],
-        "attributes": {}
-      }
-```
-
-### `skip.attributes` (default: `true`)
-
-When `true` (default), all attributes are ignored and every node's `attributes` property is `{}`. Set to `false` to populate attributes.
-
-### Value parsers
-
-By default the parser chain `["entity", "boolean", "number"]` is applied to text content, converting strings like `"42"` to `42` and `"true"` to `true`. Override with `tags.valueParsers`.
+The `node` argument has `elementname`, `child`, `text`, and the attributes groupBy key fully populated at call time.

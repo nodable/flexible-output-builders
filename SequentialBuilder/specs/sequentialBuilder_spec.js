@@ -289,20 +289,23 @@ describe("SequentialBuilder - attributes", function () {
       const entry = result[0]["root"][0];
       expect(entry.attributes["attr_foo"]).toBe("bar");
     },
-    makeOptions({ attributes: { prefix: "attr_" } }, { skip: { attributes: false } })
+    makeOptions({}, { attributes: { prefix: "attr_" }, skip: { attributes: false } })
   );
 
   runAcrossAllInputSources(
     "groupBy option changes the sibling key for attributes",
     `<root><t foo="bar"/></root>`,
     (result) => {
+      // console.log(JSON.stringify(result, null, 2));
       const entry = result[0]["root"][0];
       expect(entry["@"]["attr_foo"]).toBe("bar");
       expect(entry.attributes).toBeUndefined();
     },
-    makeOptions(
-      { attributes: { prefix: "attr_", groupBy: "@" } },
-      { skip: { attributes: false } }
+    makeOptions({},
+      {
+        attributes: { prefix: "attr_", groupBy: "@" },
+        skip: { attributes: false }
+      }
     )
   );
 
@@ -527,7 +530,7 @@ describe("SequentialBuilder - mixed content", function () {
       const p = result[0]["root"][0]["p"];
       expect(p[0]["_t"]).toBe("Hello ");
     },
-    makeOptions({ nameFor: { text: "_t" }, tags: { valueParsers: [] } })
+    makeOptions({ tags: { valueParsers: [] } }, { nameFor: { text: "_t" } })
   );
 
 });
@@ -558,7 +561,7 @@ describe("SequentialBuilder - comments", function () {
       expect(comment).toBeDefined();
       expect(comment["#comment"]).toBe("Hello");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -570,7 +573,7 @@ describe("SequentialBuilder - comments", function () {
       expect(children[1]["a"]).toBeDefined();
       expect(children[2]["#comment"]).toBe("c2");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -610,7 +613,7 @@ describe("SequentialBuilder - CDATA", function () {
       const children = result[0]["root"][0]["code"];
       expect(children[0]["##cdata"]).toBe("data");
     },
-    makeOptions({ nameFor: { cdata: "##cdata" } }, { skip: { cdata: false } })
+    makeOptions({}, { skip: { cdata: false }, nameFor: { cdata: "##cdata" } })
   );
 
   runAcrossAllInputSources(
@@ -697,8 +700,8 @@ describe("SequentialBuilder - stop nodes", function () {
   it("onStopNode callback is invoked with tagDetail and rawContent", function () {
     const spy = jasmine.createSpy("onStopNode");
     const parser = new XMLParser(makeOptions(
-      { onStopNode: spy },
-      { tags: { stopNodes: ["*.noParse"] } }
+      {},
+      { tags: { stopNodes: ["*.noParse"] }, onStopNode: spy }
     ));
     parser.parse("<root><noParse>raw</noParse></root>");
     expect(spy).toHaveBeenCalledTimes(1);
@@ -722,7 +725,7 @@ describe("SequentialBuilder - nameFor overrides", function () {
       const children = result[0]["root"];
       expect(children[0]["##"]).toBe("hello");
     },
-    makeOptions({ nameFor: { comment: "##" } })
+    makeOptions({}, { nameFor: { comment: "##" } })
   );
 
   runAcrossAllInputSources(
@@ -732,7 +735,7 @@ describe("SequentialBuilder - nameFor overrides", function () {
       const children = result[0]["root"][0]["code"];
       expect(children[0]["##cdata"]).toBe("data");
     },
-    makeOptions({ nameFor: { cdata: "##cdata" } }, { skip: { cdata: false } })
+    makeOptions({}, { nameFor: { cdata: "##cdata" }, skip: { cdata: false } })
   );
 
   runAcrossAllInputSources(
@@ -742,7 +745,7 @@ describe("SequentialBuilder - nameFor overrides", function () {
       const p = result[0]["root"][0]["p"];
       expect(p[0]["_"]).toBe("Hello ");
     },
-    makeOptions({ nameFor: { text: "_" }, tags: { valueParsers: [] } })
+    makeOptions({ tags: { valueParsers: [] } }, { nameFor: { text: "_" } })
   );
 
 });
@@ -946,7 +949,7 @@ describe("SequentialBuilder - document order preservation", function () {
       expect(children[3]["b"]).toBeDefined();
       expect(children[4]["#comment"]).toBe("c3");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(

@@ -1,5 +1,6 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@nodable/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, Context } from '@nodable/base-output-builder';
+import { ValueParserPipeline } from '@nodable/base-output-builder';
 
 /**
  * SequentialStreamBuilderFactory
@@ -76,12 +77,10 @@ export default class SequentialStreamBuilderFactory extends BaseOutputBuilderFac
     this._onChunk = onChunk ?? null;
     this._space = space ?? undefined;
 
-    this.options = buildOptions(builderOptions);
+    this.builderOptions = buildOptions(builderOptions);
   }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValueParsers();
-    const valParsers = { ...this.commonValParsers };
 
     // Each parse run gets its own builder instance, with a fresh emit function
     // that writes to the configured destination.
@@ -91,11 +90,11 @@ export default class SequentialStreamBuilderFactory extends BaseOutputBuilderFac
 
     return new SequentialStreamBuilder(
       parserOptions,
-      this.options,
-      valParsers,
+      this.builderOptions,
       readonlyMatcher,
+      this.registry,
       emit,
-      this._space
+      this._space,
     );
   }
 }
@@ -104,30 +103,20 @@ export default class SequentialStreamBuilderFactory extends BaseOutputBuilderFac
 
 export class SequentialStreamBuilder extends BaseOutputBuilder {
   /**
-   * @param {object}   parserOptions
-   * @param {object}   builderOptions   – merged + defaulted options from buildOptions()
-   * @param {object}   registeredValParsers
-   * @param {object}   readonlyMatcher
-   * @param {Function} emit             – (chunk: string) => void
-   * @param {number|string|undefined} space – JSON.stringify space argument
+   * @param {object}                options   – merged + defaulted options from buildOptions()
+   * @param {MatcherView}                readonlyMatcher
+   * @param {object} registry
+   * @param {Function}              emit             – (chunk: string) => void
+   * @param {number|string|undefined} space          – JSON.stringify space argument
    */
-  constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher, emit, space) {
-    super(readonlyMatcher);
+  constructor(parserOptions, builderOptions, readonlyMatcher, registry, emit, space) {
+    super(parserOptions, builderOptions, readonlyMatcher, registry);
 
     this.tagsStack = [];
+
     this.parserOptions = parserOptions;
-
-    this.options = {
-      ...parserOptions,
-      ...builderOptions,
-      skip: { ...parserOptions.skip, ...builderOptions.skip },
-      nameFor: { ...parserOptions.nameFor, ...builderOptions.nameFor },
-      tags: { ...parserOptions.tags, ...builderOptions.tags },
-      attributes: { ...parserOptions.attributes, ...builderOptions.attributes },
-    };
-
-    this.registeredValParsers = registeredValParsers;
-
+    this.builderOptions = builderOptions;
+    this.groupBy = this.parserOptions.attributes.groupBy || "attributes";
     this._emit = emit;
     this._space = space;
     this._entryCount = 0;   // how many top-level entries have been emitted so far
@@ -177,7 +166,7 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
       // Migrate any pending text into the children array (mixed-content case).
       if (this.currentNode.text !== undefined) {
         this.currentNode.children.unshift({
-          [this.options.nameFor.text]: this.currentNode.text,
+          [this.parserOptions.nameFor.text]: this.currentNode.text,
         });
         delete this.currentNode.text;
       }
@@ -186,23 +175,13 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
     }
     // else: tagsStack is empty and currentNode is null → this is a new top-level element.
 
-    const node = new Node(tag.name, this.options);
+    const node = new Node(tag.name, this.groupBy);
 
     if (this.attributes && Object.keys(this.attributes).length > 0) {
-      node[this.options.attributes.groupBy] = { ...this.attributes };
+      node[this.groupBy] = { ...this.attributes };
     }
     this.attributes = {};
     this.currentNode = node;
-  }
-
-  /**
-   * Called when a stop node is fully collected, before addValue().
-   */
-  onStopNode(tagDetail, rawContent) {
-    this._pendingStopNode = true;
-    if (typeof this.options.onStopNode === 'function') {
-      this.options.onStopNode(tagDetail, rawContent, this.matcher);
-    }
   }
 
   closeElement() {
@@ -210,8 +189,8 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
 
     this._pendingStopNode = false;
 
-    if (this.options.onClose !== undefined) {
-      const resultTag = this.options.onClose(node, this.matcher);
+    if (this.builderOptions.onClose !== undefined) {
+      const resultTag = this.builderOptions.onClose(node, this.matcher);
       if (resultTag) {
         // Caller suppressed this entry; restore parent or null
         this.currentNode = this.tagsStack.pop() ?? null;
@@ -222,9 +201,8 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
     // Build the entry object — same shape as SequentialBuilder
     const entry = { [node.tagname]: node.children };
 
-    const groupBy = this.options.attributes.groupBy;
-    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
-      entry[groupBy] = node[groupBy];
+    if (node[this.groupBy] && Object.keys(node[this.groupBy]).length > 0) {
+      entry[this.groupBy] = node[this.groupBy];
     }
 
     if (node.text !== undefined) {
@@ -248,22 +226,21 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
     if (this.currentNode === null) return; // text outside any tag — ignore
 
     const hasElementChildren = this.currentNode.children?.some(
-      (c) => !Object.prototype.hasOwnProperty.call(c, this.options.nameFor.text)
+      (c) => !Object.prototype.hasOwnProperty.call(c, this.parserOptions.nameFor.text)
     );
 
-    const context = {
-      elementName: this.currentNode.tagname,
-      elementValue: text,
-      elementType: ElementType.ELEMENT,
-      matcher: this.matcher,
-      isLeafNode: !hasElementChildren,
-    };
+    const context = new Context(
+      this.currentNode.tagname,
+      this.matcher,
+      !hasElementChildren,
+      false
+    );
 
-    const parsedValue = this.parseValue(text, this.options.tags.valueParsers, context);
+    const parsedValue = this._pendingStopNode ? text : this.tagsPipeline.run(text, context);
 
-    if (hasElementChildren || this.options.textInChild) {
+    if (hasElementChildren || this.builderOptions.textInChild) {
       this.currentNode.children.push({
-        [this.options.nameFor.text]: parsedValue,
+        [this.parserOptions.nameFor.text]: parsedValue,
       });
     } else {
       this.currentNode.text = parsedValue;
@@ -273,14 +250,13 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
   addInstruction(name) {
     if (this.currentNode === null) {
       // PI at document level — emit immediately as a standalone entry
-      const node = new Node(name, this.options);
-      const groupBy = this.options.attributes.groupBy;
+      const node = new Node(name, this.groupBy);
       if (this.attributes && Object.keys(this.attributes).length > 0) {
-        node[groupBy] = { ...this.attributes };
+        node[this.groupBy] = { ...this.attributes };
       }
       const entry = { [node.tagname]: node.children };
-      if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
-        entry[groupBy] = node[groupBy];
+      if (node[this.groupBy] && Object.keys(node[this.groupBy]).length > 0) {
+        entry[this.groupBy] = node[this.groupBy];
       }
       this.attributes = {};
       this._emitEntry(entry);
@@ -288,36 +264,35 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
     }
 
     // PI inside an element — same as SequentialBuilder
-    const node = new Node(name, this.options);
-    const groupBy = this.options.attributes.groupBy;
+    const node = new Node(name, this.groupBy);
     if (this.attributes && Object.keys(this.attributes).length > 0) {
-      node[groupBy] = { ...this.attributes };
+      node[this.groupBy] = { ...this.attributes };
     }
     const entry = { [node.tagname]: node.children };
-    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
-      entry[groupBy] = node[groupBy];
+    if (node[this.groupBy] && Object.keys(node[this.groupBy]).length > 0) {
+      entry[this.groupBy] = node[this.groupBy];
     }
     this.currentNode.children.push(entry);
     this.attributes = {};
   }
 
   addComment(text) {
-    if (this.options.skip.comment) return;
-    if (!this.options.nameFor.comment) return;
+    if (this.parserOptions.skip.comment) return;
+    if (!this.parserOptions.nameFor.comment) return;
     if (this.currentNode === null) return; // comment outside any tag
 
     this.currentNode.children.push({
-      [this.options.nameFor.comment]: text,
+      [this.parserOptions.nameFor.comment]: text,
     });
   }
 
   addLiteral(text) {
-    if (this.options.skip.cdata) return;
+    if (this.parserOptions.skip.cdata) return;
 
-    if (this.options.nameFor.cdata) {
+    if (this.parserOptions.nameFor.cdata) {
       if (this.currentNode === null) return;
       this.currentNode.children.push({
-        [this.options.nameFor.cdata]: text,
+        [this.parserOptions.nameFor.cdata]: text,
       });
     } else {
       this.addValue(text || '');
@@ -362,10 +337,9 @@ export class SequentialStreamBuilder extends BaseOutputBuilder {
 // ---------------------------------------------------------------------------
 
 class Node {
-  constructor(tagname, options) {
+  constructor(tagname, groupBy) {
     this.tagname = tagname;
     this.children = [];
-    const groupBy = options?.attributes?.groupBy ?? 'attributes';
     this[groupBy] = {};
   }
 }

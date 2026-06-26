@@ -22,8 +22,10 @@
     "src"
   ],
   "dependencies": {
-    "@nodable/entities": "^2.1.1",
-    "strnum": "^2.2.2"
+    "@nodable/entities": "^2.2.0",
+    "is-unsafe": "^1.0.1",
+    "path-expression-matcher": "^1.6.1",
+    "strnum": "^2.4.1"
   },
   "funding": [
     {
@@ -34,5 +36,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodable/flexible-output-builders.git"
+  },
+  "devDependencies": {
+    "jasmine": "^6.3.0"
   }
 }

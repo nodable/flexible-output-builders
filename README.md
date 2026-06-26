@@ -1,304 +1,191 @@
 # Output Builders
 
-A collection of customizable output builders for [flexible-xml-parser](https://github.com/nodable /flexible-xml-parser). These builders allow you to transform XML into various JavaScript data structures and formats.
-
-## Architecture
-
-The Flexible XML Parser uses a modular architecture with four key components:
-
-1. **Input Sources** - Handle different XML input types (string, buffer, stream, feed)
-2. **Core Parser** - Parses XML into an in-memory object representation
-3. **Output Builders** - Transform the parsed data into desired formats (this repository)
-4. **Value Parsers** - Transform individual values (numbers, booleans, entities, etc.)
-
-Output builders are generic enough to be used by other parsers that expect the same API, making them a standalone, reusable package collection.
+A collection of customizable output builders for [flexible-xml-parser](https://github.com/nodable/flexible-xml-parser). Each builder transforms parsed XML into a different JavaScript data structure.
 
 ## Packages
 
-This monorepo contains the following packages:
+| Package | Output shape | Install |
+|---|---|---|
+| [@nodable/base-output-builder](./base-output-builder) | Base class — extend to build custom formats | `npm i @nodable/base-output-builder` |
+| [@nodable/compact-builder](./compact-builder) | Nested objects, minimal structure | `npm i @nodable/compact-builder` |
+| [@nodable/sequential-builder](./SequentialBuilder) | Array-per-tag, order preserved | `npm i @nodable/sequential-builder` |
+| [@nodable/sequential-stream-builder](./SequentialStreamBuilder) | Same as sequential, streamed to a Writable | `npm i @nodable/sequential-stream-builder` |
+| [@nodable/node-tree-builder](./NodeTreeBuilder) | Fixed-shape tree (`elementname` / `child` / attributes) | `npm i @nodable/node-tree-builder` |
 
-### [@nodable/base-output-builder](./base-output-builder)
+## Quick start
 
-The foundation for all output builders. Provides:
-- Base `BaseOutputBuilder` class for creating custom builders
-- Common value parsers (number, boolean, trim, currency, entity)
-- Entity parsing with security limits
-- Extensible architecture for custom transformations
-
-**Use when:** Building a custom output format or extending existing builders
-
-### [@nodable/compact-builder](./compact-builder)
-
-Generates compact, minimal JavaScript objects from XML.
-
-**Features:**
-- Minimal object structure
-- `forceArray` - Control which elements are always arrays
-- `alwaysArray` - Path-based array forcing
-- `forceTextNode` - Consistent text node structure
-
-**Use when:** You need clean, minimal JSON-like objects
-
-### [@nodable/sequential-builder](./SequentialBuilder)
-
-Generates sequential array-based representation of XML.
-
-**Features:**
-- Array-based structure preserving document order
-- All elements as array entries
-- Maintains element sequence
-
-**Use when:** Order of elements is critical or you need to process XML sequentially
-
-### [@nodable/sequential-stream-builder](./SequentialStreamBuilder)
-
-Generates sequential array-based representation of XML but on the stream.
-
-**Features:**
-- Array-based structure preserving document order
-- All elements as array entries
-- Maintains element sequence
-
-**Use when:** 
-- Order of elements is critical or you need to process XML sequentially
-- You are processing large XML files and need to process them on the stream
-
-### [@nodable/node-tree-builder](./NodeTreeBuilder)
-
-Generates a fixed-structure tree where each node has `tagname` and `child` properties.
-
-**Features:**
-- Consistent node structure
-- Easy tree traversal
-- Predictable property access
-- No conditional checks needed
-
-**Use when:** You need a uniform tree structure for traversal algorithms
-
-## Quick Start
-
-### Installation
-
-Install the output builder you need:
-
-```bash
-# For compact objects
-npm install @nodable/compact-builder
-
-# For sequential arrays
-npm install @nodable/sequential-builder
-
-# For sequential stream arrays
-npm install @nodable/sequential-stream-builder
-
-# For fixed-structure trees
-npm install @nodable/node-tree-builder
-
-# For custom builders
-npm install @nodable/base-output-builder
-```
-
-### Basic Usage
-
-```javascript
+```js
 import XMLParser from "@nodable/flexible-xml-parser";
-import CompactBuilder from "@nodable/compact-builder";
-
-const xml = `
-  <catalog>
-    <book id="1">
-      <title>XML Basics</title>
-      <author>John Doe</author>
-    </book>
-  </catalog>
-`;
+import { CompactBuilderFactory } from "@nodable/compact-builder";
 
 const parser = new XMLParser({
-  OutputBuilder: new CompactBuilder()
+  OutputBuilder: new CompactBuilderFactory(),
 });
 
-const result = parser.parse(xml);
-console.log(result);
+const result = parser.parse(xmlString);
 ```
 
-### Creating Custom Builders
+See each package's README for options and examples.
 
-```javascript
-import { BaseOutputBuilder, commonValueParsers } from '@nodable/base-output-builder';
+---
 
-class MyCustomBuilder extends BaseOutputBuilder {
-  constructor(parserOptions, builderOptions, valParsers, matcher) {
-    super(matcher);
-    this.registeredValParsers = valParsers;
-    this.options = { ...builderOptions, ...parserOptions };
-    // Initialize your custom data structure
-  }
+## Architecture
 
-  addElement(tag, matcher) {
-    // Handle opening tag
-  }
-
-  closeElement(matcher) {
-    // Handle closing tag
-  }
-
-  addValue(text, matcher) {
-    // Handle text content
-  }
-
-  getOutput() {
-    // Return final output
-    return this.result;
-  }
-}
-
-// Create a factory
-const MyBuilderFactory = {
-  constructor(builderOptions) {
-    this.options = builderOptions;
-    this.valParsers = commonValueParsers();
-  },
-
-  registerValueParser(name, parser) {
-    this.valParsers[name] = parser;
-  },
-
-  getInstance(parserOptions, matcher) {
-    return new MyCustomBuilder(parserOptions, this.options, this.valParsers, matcher);
-  }
-};
+```
+XMLParser
+  ├── Input Sources   — string, buffer, stream, feed
+  ├── Core Parser     — tokenises and walks XML
+  ├── Output Builders — transform nodes into any structures  ← this repo
+  └── Value Parsers   — per-value transforms (number, boolean, entity …)
 ```
 
-## Value Parsers
+The parser calls a fixed set of methods on the builder as it walks the document. Builders are not tied to this parser — any parser that calls the same method contract can use them.
 
-All builders include these value parsers:
+### Parser options vs builder options
 
-- **number** - Converts strings to numbers (using [strnum](https://www.npmjs.com/package/strnum))
-- **boolean** - Parses boolean strings ("true"/"false")
-- **trim** - Trims whitespace
-- **currency** - Parses currency values
-- **entity** - Resolves XML/HTML entities with security limits
-- **join** - Joins array values into strings
+**Parser options** (`skip`, `nameFor`, `attributes.groupBy/prefix/suffix`, `onStopNode`, …) are passed to `XMLParser` and forwarded to the builder at parse time via `getInstance(parserOptions, matcher)`. The builder reads them from `this.parserOptions`.
 
-### Customizing Value Parsers
+**Builder options** are passed to the factory constructor (`new CompactBuilderFactory(builderOptions)`). These are builder-specific concerns: value parser chains, `forceArray`, `textInChild`, `onClose`, etc. The builder reads them from `this.builderOptions`.
 
-```javascript
-import { numberParser } from '@nodable/base-output-builder';
+Do not put parser options inside builder options or vice versa.
 
-const customNumber = new numberParser({ 
-  hex: true, 
-  leadingZeros: true, 
-  eNotation: true 
-});
+---
 
-const builder = new CompactBuilder();
-builder.registerValueParser('number', customNumber);
-```
+## Summary
 
-## Entity Parsing
+### Fields
 
-By default [@nodable/entities](https://github.com/nodable/val-parsers/blob/main/Entity/docs/EntityDecoder.md) is used to decode entities. You can set any of entity parser of your choice provided that it supports following methods or create a wrapper around.
+| Field | BaseOutputBuilder | BaseOutputBuilderFactory |
+| --- | --- | --- |
+| `parserOptions` | ✓ | |
+| `builderOptions` | ✓ | ✓ |
+| `registry` | ✓ | ✓ |
+| `sharedContext` | ✓ | |
+| `tagsPipeline` | ✓ | |
+| `attrsPipeline` | ✓ | |
+| `matcher` | ✓ | |
+| `_rootName` | ✓ | |
+| `_pendingStopNode` | ✓ | |
+
+### Methods — which builder overrides which
+
+A blank cell means the base no-op is used. A ✓ means the builder provides its own implementation.
+
+| Method | Base | Compact | Sequential | SequentialStream | NodeTree |
+| --- | --- | --- | --- | --- | --- |
+| `addElement` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `closeElement` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `addValue` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `addAttribute` | ✓ | | | | |
+| `addComment` | ✓ | | ✓ | ✓ | ✓ |
+| `addLiteral` | ✓ | | ✓ | ✓ | ✓ |
+| `addInstruction` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `addRawValue` | ✓ | | | | |
+| `addInputEntities` | ✓ | | | | |
+| `addDeclaration` | ✓ | | | | |
+| `onExit` | ✓ | | ✓ | ✓ | ✓ |
+| `onStopNode` | | ✓ | ✓ | ✓ | |
+| `getOutput` | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+> `onStopNode` is called by the parser when a stop node closes. Each builder that supports it reads `parserOptions.onStopNode` and invokes it — it is a **parser option**, not a builder option.
+
+### Builder options
+
+Options passed to the factory constructor. Parser-level options are excluded here — see parser docs.
+
+| Option | Compact | Sequential | SequentialStream | NodeTree |
+| --- | --- | --- | --- | --- |
+| `tags.valueParsers` | ✓ | ✓ | ✓ | ✓ |
+| `attributes.valueParsers` | ✓ | ✓ | ✓ | ✓ |
+| `textInChild` | | ✓ | ✓ | ✓ |
+| `textJoint` | ✓ | | | |
+| `forceArray` | ✓ | | | |
+| `alwaysArray` | ✓ | | | |
+| `forceTextNode` | ✓ | | | |
+| `onClose` | | ✓ | ✓ | ✓ |
+| `stream` | | | ✓ | |
+| `onChunk` | | | ✓ | |
+| `space` | | | ✓ | |
+
+### Value parsers
+
+Registered by name on the factory. Pass names or instances in `tags.valueParsers` / `attributes.valueParsers`.
+
+| Parser | Registered name | Options |
+| --- | --- | --- |
+| `EntitiesValueParser` | `'entity'` | `EntityDecoderOptions` from `@nodable/entities` |
+| `NumberValueParser` | `'number'` | strnum options — see base-output-builder typings |
+| `BooleanParser` | `'boolean'` | `trueList`, `falseList` |
+| `WSNormalizer` | `'ws'` | `exclude` |
+| `Trim` | `'trim'` | — |
+
+---
+
+## Custom builders
+
+Extend `BaseOutputBuilder` and `BaseOutputBuilderFactory`:
 
 ```js
-type EntityDecoder = {
-  setExternalEntities: (entities: Record<string, string>) => void;
-  addInputEntities: (entities: Record<string, string>) => void;
-  reset: () => void;
-  parse: (text: string) => string;
-  setXmlVersion: (version: string) => void;
+import { BaseOutputBuilder, BaseOutputBuilderFactory } from '@nodable/base-output-builder';
+
+class MyBuilder extends BaseOutputBuilder {
+  constructor(parserOptions, builderOptions, readonlyMatcher, registry) {
+    super(parserOptions, builderOptions, readonlyMatcher, registry);
+    this.result = [];
+  }
+
+  addElement(tag) { /* … */ }
+  closeElement()  { /* … */ }
+  addValue(text)  { /* … */ }
+  getOutput()     { return this.result; }
+}
+
+export default class MyBuilderFactory extends BaseOutputBuilderFactory {
+  constructor(options = {}) {
+    super();
+    this.builderOptions = options;
+  }
+
+  getInstance(parserOptions, readonlyMatcher) {
+    return new MyBuilder(parserOptions, this.builderOptions, readonlyMatcher, this.registry);
+  }
 }
 ```
 
-Base Output Builder register an instance of `EntityDecoder` from `@nodable/entities` with `entity`. You should either overwrite it if you're changing the default config.
+Use `this.tagsPipeline.run(val, context)` and `this.attrsPipeline.run(val, context)` inside the builder to apply the value parser chain. Call `factory.registerValueParser(name, instance)` to add or replace a named parser.
+
+---
+
+## Entity parsing
+
+The default `'entity'` parser uses [@nodable/entities](https://github.com/nodable/val-parsers/blob/main/Entity/docs/EntityDecoder.md). To customise it, pass your own instance:
 
 ```js
-class EntityParser extends EntityDecoder {
-  constructor(options) {
-    super(options);
-  }
+import { EntitiesValueParser } from '@nodable/base-output-builder';
 
-  parse(val) {
-    if (typeof val === 'string') {
-      val = this.decode(val);
-    }
-    return val;
-  }
+const evp = new EntitiesValueParser({ ncr: { onNcr: 'allow' } });
 
-  setXmlVersion(v) {
-    super.setXmlVersion(Number(v));
-  }
-}
-
-const evp = new EntityParser({ ncr: { onNcr: 'allow' } });
-const builder = new CompactBuilderFactory({
-  // attributes: { valueParsers: ['entity'] }
+const factory = new CompactBuilderFactory({
   attributes: { valueParsers: [evp] }
 });
-
-builder.registerValueParser("entity", evp);
-
-const parser = new XMLParser({
-  skip: { attributes: false },
-  OutputBuilder: builder,
-});
-const result = parser.parse(`<?xml version="1.0"?><root label="&#x1;2024"/>`);
+factory.registerValueParser('entity', evp);
 ```
 
-
-## Builder Comparison
-
-| Feature | Compact | Sequential | NodeTree |
-|---------|---------|------------|----------|
-| Object structure | Nested objects | Arrays | Fixed tree |
-| Element order | Not preserved | Preserved | Preserved |
-| Array control | Yes | N/A | N/A |
-| Text node control | Yes | No | No |
-| Traversal ease | Medium | Easy | Very Easy |
-| Output size | Smallest | Large | Medium |
-
-## Examples
-
-See individual package READMEs for detailed examples:
-- [Compact Builder Examples](./compact-builder/README.md)
-- [Sequential Builder Examples](./SequentialBuilder/README.md)
-- [Node Tree Builder Examples](./NodeTreeBuilder/README.md)
-- [Base Builder Examples](./base-output-builder/README.md)
+---
 
 ## Development
 
-This is a monorepo using npm workspaces.
-
 ```bash
-# Install all dependencies
-npm install
-
-# Install for all workspaces
-npm run install:all
-
-# Run tests for all packages
-npm test
+npm install        # install all workspace dependencies
+npm test           # run tests for all packages
 ```
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-1. All packages maintain backward compatibility
-2. TypeScript definitions are updated
-3. Documentation is clear and complete
-4. Tests pass for all packages
 
 ## License
 
-MIT © [Amit Gupta](https://nodable.com)
+MIT © [Amit Gupta](https://solothought.com)
 
 ## Links
 
 - [Flexible XML Parser](https://github.com/nodable/flexible-xml-parser)
-- [Documentation](https://github.com/nodable/flex-output-builders#readme)
 - [Issues](https://github.com/nodable/flex-output-builders/issues)
-
-## Author
-
-**Amit Gupta**
-- Website: [solothought.com](https://solothought.com)
 - GitHub: [@nodable](https://github.com/nodable)

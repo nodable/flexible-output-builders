@@ -1,81 +1,78 @@
-import EntityParser from './ValueParsers/EntityParser.js';
-import trimParser from './ValueParsers/trim.js';
-import booleanParser from './ValueParsers/booleanParser.js';
-import numberParser from './ValueParsers/number.js';
-import currencyParser from './ValueParsers/currency.js';
+import { MatcherView } from 'path-expression-matcher';
+import { Context, SharedContext, ValueParserPipeline } from './ValueParser.js';
+import ValueParserRegistry from './ValueParserRegistry.js';
 
-/**
- * Element type constants passed in the ValueParser context object.
- * These are the only two values `context.elementType` will ever carry.
- *
- * @enum {string}
- */
-export const ElementType = Object.freeze({
-  ELEMENT: 'ELEMENT',
-  ATTRIBUTE: 'ATTRIBUTE',
-});
+// Default parser chains.
+const DEFAULT_TAG_PARSERS = ['ws', 'entity', 'boolean', 'number'];
+const DEFAULT_ATTR_PARSERS = ['entity', 'boolean', 'number'];
 
 export default class BaseOutputBuilder {
 
-  constructor(readonlyMatcher) {
-    this.matcher = readonlyMatcher || null;
+  /**
+   * @param {object}              parserOptions
+   * @param {object}              builderOptions
+   * @param {MatcherView}         matcherView
+   * @param {ValueParserRegistry} registry
+   * @param {boolean}             resetPipelines
+   */
+  constructor(parserOptions, builderOptions, matcherView, registry, resetPipelines = true) {
+    this.matcher = matcherView;
     this._rootName = "^";
+    this.parserOptions = parserOptions;
+    this.builderOptions = builderOptions;
+    this.registry = registry;
+
+    const tagChain = builderOptions?.tags?.valueParsers ?? DEFAULT_TAG_PARSERS;
+    const attrChain = builderOptions?.attributes?.valueParsers ?? DEFAULT_ATTR_PARSERS;
+
+    /**
+     * Shared mutable context distributed to all value parsers.
+     * `BaseOutputBuilder` is the sole writer; parsers are readers (or
+     * co-writers for cross-parser communication).
+     * @type {SharedContext|null}
+     */
+    this.sharedContext = new SharedContext();
+    /**
+     * Pipeline for tag text values.
+     * Call `this.tagsPipeline.run(val, context)` from subclass
+     * `closeElement()` implementations.
+     * @type {ValueParserPipeline}
+     */
+    this.tagsPipeline = new ValueParserPipeline(tagChain, this.registry, this.sharedContext);
+    /**
+     * Pipeline for attribute values.
+     * Call `this.attrsPipeline.run(val, context)` from subclass
+     * `addAttribute()` implementations.
+     * @type {ValueParserPipeline}
+     */
+    this.attrsPipeline = new ValueParserPipeline(attrChain, this.registry, this.sharedContext);
+
+    if (resetPipelines) {
+      this.tagsPipeline.resetAll();
+      this.attrsPipeline.resetAll();
+    }
+
+    this._pendingStopNode = false;
   }
 
   /**
    * Add a parsed attribute to the current element.
    * Only called when skip.attributes is false.
    *
-   * @param {string}  name    - processed attribute name (prefix stripped, sanitised)
-   * @param {*}       value   - raw attribute value
-   * @param {object}  matcher - read-only Matcher proxy from the parser
+   * @param {string}  name    Processed attribute name (prefix stripped, sanitised)
+   * @param {*}       value   Raw attribute value
+   * @param {object}  matcher Read-only Matcher proxy from the parser
    */
   addAttribute(name, value, matcher) {
-    //attributes of instruction
-    if (name === "version" && this.tagName === this._rootName) { //TODO: use parser.xmlVersion instead
-      setToEntityParser(this.registeredValParsers, "setXmlVersion", +value);
+    // Capture XML version from the declaration tag and make it available to
+    // value parsers (e.g. EntityParser) via SharedContext.
+    if (name === "version" && this.tagName === this._rootName) {
+      this.sharedContext?.set('xmlVersion', +value);
     }
-    const prefixed = this.options.attributes.prefix + name + this.options.attributes.suffix;
-    const context = {
-      elementName: name,
-      elementValue: value,
-      elementType: ElementType.ATTRIBUTE,
-      matcher: matcher,   // read-only proxy — always reflects current path
-      isLeafNode: true,      // attributes are always leaf values
-    };
-    //TODO: sanitize name
-    this.attributes[prefixed] = this.parseValue(value, this.options.attributes.valueParsers, context);
-  }
+    const prefixed = `${this.parserOptions.attributes.prefix}${name}${this.parserOptions.attributes.suffix}`;
+    const context = new Context(name, matcher, true, true);// attributes are always leaf values
+    this.attributes[prefixed] = this.attrsPipeline.run(value, context);
 
-  /**
-   * Run a value through the registered parser chain.
-   *
-   * Each parser receives `(currentValue, context)` where context is:
-   * ```
-   * {
-   *   elementName:  string,           // element name or attribute name
-   *   elementValue: any,              // original value before this parse call
-   *   elementType:  'ELEMENT'|'ATTRIBUTE',
-   *   matcher:      ReadOnlyMatcher,  // inspect path, attributes, position
-   *   isLeafNode:   boolean|null,     // null when not yet determinable
-   * }
-   * ```
-   *
-   * @param {string} val
-   * @param {Array<string|object>} valParsers
-   * @param {object} [context]
-   */
-  parseValue(val, valParsers, context) {
-    for (let i = 0; i < valParsers.length; i++) {
-      let parser = valParsers[i];
-      if (typeof parser === 'string') {
-        parser = this.registeredValParsers[parser];
-      }
-      if (parser) {
-        val = parser.parse(val, context);
-      }
-    }
-    return val;
   }
 
   /** Hook for subclasses to append a named child node. */
@@ -87,9 +84,9 @@ export default class BaseOutputBuilder {
    * - Stored under nameFor.comment when set; '' = omit from output.
    */
   addComment(text) {
-    if (this.options.skip.comment) return;
-    if (this.options.nameFor.comment) {
-      this._addChild(this.options.nameFor.comment, text);
+    if (this.parserOptions.skip.comment) return;
+    if (this.parserOptions.nameFor.comment) {
+      this._addChild(this.parserOptions.nameFor.comment, text);
     }
   }
 
@@ -99,40 +96,31 @@ export default class BaseOutputBuilder {
    * - Stored under nameFor.cdata when set; '' = merge into element text value.
    */
   addLiteral(text) {
-    if (this.options.skip.cdata) return;
-    if (this.options.nameFor.cdata) {
-      this._addChild(this.options.nameFor.cdata, text);
+    if (this.parserOptions.skip.cdata) return;
+    if (this.parserOptions.nameFor.cdata) {
+      this._addChild(this.parserOptions.nameFor.cdata, text);
     } else {
       this.addRawValue(text || "");
     }
   }
 
   /**
-   * Add raw text directly to the current element's text value, bypassing any
+   * Add raw text directly to the current element's text value, bypassing the
    * value-parser chain. Used by addLiteral() when CDATA merges into element text.
-   * Subclasses that override addValue() will have that override respected here
-   * because this is a regular prototype method, not an arrow function.
    */
   addRawValue(text) {
     this.addValue(text);
   }
 
   /**
-   * Receive DOCTYPE entities from the XML parser and forward them to any
-   * registered value parser that knows how to handle them.
-   *
-   * Called once per parse by Xml2JsParser immediately after the DOCTYPE block
-   * is read. The default implementation is intentionally generic — it forwards
-   * to every registered value parser that exposes an addInputEntities()
-   * method, without coupling BaseOutputBuilder to any specific parser type.
-   *
-   * Subclasses may override this if they need different routing behaviour,
-   * but the default forwarding is sufficient for all standard builders.
+   * Receive DOCTYPE entities from the XML parser and store them in
+   * SharedContext so that value parsers can access them on their first
+   * `parse()` call.
    *
    * @param {object} entities — raw entity map from DocTypeReader
    */
   addInputEntities(entities) {
-    setToEntityParser(this.registeredValParsers, "addInputEntities", entities);
+    this.sharedContext?.set('inputEntities', entities);
   }
 
   /**
@@ -140,15 +128,27 @@ export default class BaseOutputBuilder {
    * Dropped when skip.declaration is true.
    */
   addDeclaration(name) {
-
     this.addInstruction(name);
   }
 
   /**
    * Handle a processing instruction.
-   * Subclasses override; base clears attributes.
+   * Subclasses override; base is a no-op.
    */
   addInstruction(name) {
+  }
+
+  /**
+ * Called when a stop node is fully collected, before `addValue`.
+ *
+ * @param {TagDetail}       tagDetail  - name, line, col, index of the stop node
+ * @param {string}          rawContent - raw unparsed content between the tags
+ */
+  onStopNode(tagDetail, rawContent) {
+    this._pendingStopNode = true;
+    if (typeof this.parserOptions.onStopNode === 'function') {
+      this.parserOptions.onStopNode(tagDetail, rawContent, this.matcher);
+    }
   }
 
   /**
@@ -159,29 +159,9 @@ export default class BaseOutputBuilder {
    * Override in subclasses to record the exit position or annotate output.
    *
    * @param {object} exitInfo
-   * @param {object} exitInfo.tagDetail   - `{ name, line, col, index }` of the
-   *                                        tag that triggered the exit.
-   * @param {object} exitInfo.matcher     - Read-only matcher positioned at
-   *                                        that tag at the moment exitIf fired.
-   * @param {number} exitInfo.depth       - Nesting depth at exit (0 = root children).
+   * @param {object} exitInfo.tagDetail  `{ name, line, col, index }` of the tag that triggered the exit
+   * @param {object} exitInfo.matcher    Read-only matcher at the moment exitIf fired
+   * @param {number} exitInfo.depth      Nesting depth at exit (0 = root children)
    */
   onExit(exitInfo) { }
-}
-
-function setToEntityParser(parsers, fnName, param) {
-  for (const vp of Object.values(parsers)) {
-    if (typeof vp[fnName] === 'function') {
-      vp[fnName](param);
-    }
-  }
-}
-
-export function commonValueParsers() {
-  return {
-    "entity": new EntityParser(),
-    "trim": new trimParser(),
-    "boolean": new booleanParser(),
-    "number": new numberParser({ hex: true, leadingZeros: true, eNotation: true }),
-    "currency": new currencyParser(),
-  };
 }

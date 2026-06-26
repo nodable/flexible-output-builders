@@ -1,11 +1,14 @@
 import toNumber from 'strnum';
+import BaseValueParser from "./BaseValueParser.js"
+import { FinalValue } from "./../ValueParser.js"
 
 /**
  * Number parser class that wraps the strnum toNumber function
  * Provides consistent API for value parsing in flexible-xml-parser
  */
-export default class numParser {
-  constructor(options) {
+export default class numParser extends BaseValueParser {
+  constructor(options, isFinal = false) {
+    super(isFinal);
     this.options = options || {};
   }
 
@@ -16,7 +19,10 @@ export default class numParser {
    */
   parse(val) {
     if (typeof val === 'string') {
-      val = toNumber(val, this.options);
+      const newval = toNumber(val, this.options);
+      if (typeof newval !== val) {
+        return this.IS_FINAL ? new FinalValue(newval) : newval;
+      }
     }
     return val;
   }

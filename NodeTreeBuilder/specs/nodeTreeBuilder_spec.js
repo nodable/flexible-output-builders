@@ -290,7 +290,7 @@ describe("NodeTreeBuilder - attributes", function () {
     (result) => {
       expect(result.child[0].attributes["attr_foo"]).toBe("bar");
     },
-    makeOptions({ attributes: { prefix: "attr_" } }, { skip: { attributes: false } })
+    makeOptions({}, { attributes: { prefix: "attr_" }, skip: { attributes: false } })
   );
 
   runAcrossAllInputSources(
@@ -358,9 +358,9 @@ describe("NodeTreeBuilder - attributes", function () {
       expect(result.child[0]["@"]["attr_foo"]).toBe("bar");
     },
     makeOptions({
-      attributes: { prefix: "attr_", groupBy: "@" }
     },
       {
+        attributes: { prefix: "attr_", groupBy: "@" },
         skip: { attributes: false }
       })
   );
@@ -672,7 +672,7 @@ describe("NodeTreeBuilder - mixed content", function () {
       const p = result.child[0];
       expect(p.child[0]["_t"]).toBe("Hello ");
     },
-    makeOptions({ nameFor: { text: "_t" }, tags: { valueParsers: [] } })
+    makeOptions({ tags: { valueParsers: [] } }, { nameFor: { text: "_t" } })
   );
 
 });
@@ -724,7 +724,7 @@ describe("NodeTreeBuilder - comments", function () {
       expect(result.child[0].text).toBe("Hello");
       expect(result.child[1].text).toBe("value");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -765,7 +765,7 @@ describe("NodeTreeBuilder - comments", function () {
       const plainResult = JSON.parse(JSON.stringify(result))
       expect(plainResult).toEqual(expected)
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -816,7 +816,7 @@ describe("NodeTreeBuilder - comments", function () {
       const plainResult = JSON.parse(JSON.stringify(result))
       expect(plainResult).toEqual(expected)
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -847,7 +847,7 @@ describe("NodeTreeBuilder - comments", function () {
       expect(result[0].text).toEqual("Root comment");
       expect(result[0].elementname).toEqual("#comment");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
 });
@@ -896,7 +896,7 @@ describe("NodeTreeBuilder - CDATA", function () {
       expect(code.child[0].elementname).toBe("#cdata");
       expect(code.child[0].text).toBe("x < 1");
     },
-    makeOptions({ nameFor: { cdata: "#cdata" } }, { skip: { cdata: false } })
+    makeOptions({}, { nameFor: { cdata: "#cdata" }, skip: { cdata: false } })
   );
 
   runAcrossAllInputSources(
@@ -924,7 +924,7 @@ describe("NodeTreeBuilder - CDATA", function () {
       // console.log(JSON.stringify(result, null, 2))
       expect(result.child[0].child[0].text).toEqual('<tag attr="value">text & more</tag>');
     },
-    makeOptions({ nameFor: { cdata: "#cdata" } }, { skip: { cdata: false } })
+    makeOptions({}, { nameFor: { cdata: "#cdata" }, skip: { cdata: false } })
   );
 
   runAcrossAllInputSources(
@@ -1111,8 +1111,8 @@ describe("NodeTreeBuilder - stop nodes", function () {
   it("onStopNode callback is invoked with tagDetail and rawContent", function () {
     const spy = jasmine.createSpy("onStopNode");
     const parser = new XMLParser(makeOptions(
-      { onStopNode: spy },
-      { tags: { stopNodes: ["*.noParse"] } }
+      {},
+      { onStopNode: spy, tags: { stopNodes: ["*.noParse"] } }
     ));
     parser.parse("<root><noParse>raw</noParse></root>");
     expect(spy).toHaveBeenCalledTimes(1);
@@ -1151,7 +1151,7 @@ describe("NodeTreeBuilder - nameFor overrides", function () {
       const plainResult = JSON.parse(JSON.stringify(result));
       expect(plainResult).toEqual(expected);
     },
-    makeOptions({ nameFor: { comment: "##" } })
+    makeOptions({}, { nameFor: { comment: "##" } })
   );
 
   runAcrossAllInputSources(
@@ -1180,7 +1180,7 @@ describe("NodeTreeBuilder - nameFor overrides", function () {
       const plainResult = JSON.parse(JSON.stringify(result))
       expect(plainResult).toEqual(expected)
     },
-    makeOptions({ nameFor: { cdata: "##cdata" } }, { skip: { cdata: false } })
+    makeOptions({}, { nameFor: { cdata: "##cdata" }, skip: { cdata: false } })
   );
 
   runAcrossAllInputSources(
@@ -1211,7 +1211,7 @@ describe("NodeTreeBuilder - nameFor overrides", function () {
 
       expect(result.child[0].child[0]["_"]).toBe("Hello ");
     },
-    makeOptions({ nameFor: { text: "_" }, tags: { valueParsers: [] } })
+    makeOptions({ tags: { valueParsers: [] } }, { nameFor: { text: "_" } })
   );
 
 });
@@ -1481,7 +1481,7 @@ describe("NodeTreeBuilder - document order preservation", function () {
       expect(result.child[3].elementname).toBe("b");
       expect(result.child[4].elementname).toBe("#comment");
     },
-    makeOptions({ nameFor: { comment: "#comment" } })
+    makeOptions({}, { nameFor: { comment: "#comment" } })
   );
 
   runAcrossAllInputSources(
@@ -1558,7 +1558,7 @@ describe("NodeTreeBuilder - full snapshot tests", function () {
       };
       expect(plain(result)).toEqual(expected);
     },
-    makeOptions({}, { tags: { valueParsers: [] } })
+    makeOptions({ tags: { valueParsers: [] } })
   );
 
   runAcrossAllInputSources(

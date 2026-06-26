@@ -1,46 +1,40 @@
 //OrderedOutputBuilder
 
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@nodable/base-output-builder';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, Context } from '@nodable/base-output-builder';
 
 
 export default class NodeTreeBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
-    super()
-    this.options = buildOptions(options);
-    // this.commonValParsers = commonValueParsers();
+    super();
+    this.builderOptions = buildOptions(options);
   }
 
-  // registerValueParser(name, parserInstance) {
-  //   this.commonValParsers[name] = parserInstance;
-  // }
-
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValueParsers();
-    const valParsers = { ...this.commonValParsers };
-    return new NodeTreeBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
+    return new NodeTreeBuilder(
+      parserOptions,
+      this.builderOptions,
+      readonlyMatcher,
+      this.registry,
+    );
   }
 }
 
 export class NodeTreeBuilder extends BaseOutputBuilder {
 
-  constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher) {
-    super(readonlyMatcher);
+  /**
+ * @param {object}                parserOptions
+ * @param {object}                builderOptions
+ * @param {MatcherView} readonlyMatcher
+ * @param {object}                registry
+ */
+  constructor(parserOptions, builderOptions, readonlyMatcher, registry) {
+    super(parserOptions, builderOptions, readonlyMatcher, registry);
     this.tagsStack = [];
     this.parserOptions = parserOptions;
-
-    this.options = {
-      ...parserOptions,
-      ...builderOptions,
-      skip: { ...parserOptions.skip, ...builderOptions.skip },
-      nameFor: { ...parserOptions.nameFor, ...builderOptions.nameFor },
-      tags: { ...parserOptions.tags, ...builderOptions.tags },
-      attributes: { ...parserOptions.attributes, ...builderOptions.attributes },
-    };
-
-    this.registeredValParsers = registeredValParsers;
-
-    this.root = new Node(this._rootName, this.options);
+    this.builderOptions = builderOptions;
+    this.groupBy = this.parserOptions.attributes.groupBy || 'attributes';
+    this.root = new Node(this._rootName, this.groupBy);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
@@ -52,32 +46,19 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
     // now that we know this is mixed content.
     if (this.currentNode.text !== undefined) {
       this.currentNode.child.unshift({
-        [this.options.nameFor.text]: this.currentNode.text
+        [this.parserOptions.nameFor.text]: this.currentNode.text
       });
       delete this.currentNode.text;
     }
 
     this.tagsStack.push(this.currentNode);
-    const node = new Node(tag.name, this.options);
+    const node = new Node(tag.name, this.groupBy);
     // Attach any pending attributes onto the new node
     if (this.attributes && Object.keys(this.attributes).length > 0) {
-      node[this.options.attributes.groupBy] = { ...this.attributes };
+      node[this.groupBy] = { ...this.attributes };
     }
     this.attributes = {};
     this.currentNode = node;
-  }
-
-  /**
-   * Called when a stop node is fully collected, before `addValue`.
-   *
-   * @param {TagDetail}       tagDetail  - name, line, col, index of the stop node
-   * @param {string}          rawContent - raw unparsed content between the tags
-   */
-  onStopNode(tagDetail, rawContent) {
-    this._pendingStopNode = true;
-    if (typeof this.options.onStopNode === 'function') {
-      this.options.onStopNode(tagDetail, rawContent, this.matcher);
-    }
   }
 
   closeElement() {
@@ -86,8 +67,8 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
 
     this._pendingStopNode = false;
 
-    if (this.options.onClose !== undefined) {
-      const resultTag = this.options.onClose(node, this.matcher);
+    if (this.builderOptions.onClose !== undefined) {
+      const resultTag = this.builderOptions.onClose(node, this.matcher);
       if (resultTag) return;
     }
 
@@ -104,20 +85,19 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
     // Check whether there are already element children (mixed content scenario)
     const hasElementChildren = this.currentNode?.child?.some(c => c.elementname !== undefined);
 
-    const context = {
-      elementName: tagName,
-      elementValue: text,
-      elementType: ElementType.ELEMENT,
-      matcher: this.matcher,
-      isLeafNode: !hasElementChildren,
-    };
+    const context = new Context(
+      tagName,
+      this.matcher,
+      !hasElementChildren,
+      false,
+    );
 
-    const parsedValue = this.parseValue(text, this.options.tags.valueParsers, context);
+    const parsedValue = this._pendingStopNode ? text : this.tagsPipeline.run(text, context);
 
-    if (hasElementChildren || this.options.textInChild) {
+    if (hasElementChildren || this.builderOptions.textInChild) {
       // Mixed content: text alongside child elements — store as inline text child
       this.currentNode.child.push({
-        [this.options.nameFor.text]: parsedValue
+        [this.parserOptions.nameFor.text]: parsedValue
       });
     } else {
       // Pure text (leaf node or text before any child elements):
@@ -127,9 +107,9 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
   }
 
   addInstruction(name) {
-    const node = new Node(name, this.options);
+    const node = new Node(name, this.groupBy);
     if (!isEmpty(this.attributes)) {
-      node[this.options.attributes.groupBy] = this.attributes;
+      node[this.groupBy] = this.attributes;
     }
     // this.currentNode.child.push(node);
     this._addChild(node);
@@ -137,24 +117,26 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
   }
 
   addComment(text) {
-    if (this.options.skip.comment) return;
-    if (this.options.nameFor.comment) {
-      const node = new Node(this.options.nameFor.comment, this.options);
+    if (this.parserOptions.skip.comment) return;
+    if (this.parserOptions.nameFor.comment) {
+      const node = new Node(this.parserOptions.nameFor.comment, this.groupBy);
       node.text = text;
       this._addChild(node);
     }
   }
 
   addLiteral(text) {
-    if (this.options.skip.cdata) return;
-    if (this.options.nameFor.cdata) {
-      const node = new Node(this.options.nameFor.cdata, this.options);
+    if (this.parserOptions.skip.cdata) return;
+    if (this.parserOptions.nameFor.cdata) {
+      const node = new Node(this.parserOptions.nameFor.cdata, this.groupBy);
       node.text = text;
       this._addChild(node);
     } else {
       this.addValue(text || "");
     }
   }
+
+  onExit(exitInfo) { }
 
   getOutput() {
     const children = this.root.child;
@@ -164,10 +146,9 @@ export class NodeTreeBuilder extends BaseOutputBuilder {
 }
 
 class Node {
-  constructor(elementname, options) {
+  constructor(elementname, groupBy) {
     this.elementname = elementname;
     this.child = [];
-    const groupBy = options?.attributes?.groupBy ?? 'attributes';
     this[groupBy] = {};
   }
 }

@@ -1,34 +1,34 @@
 const defaultOptions = {
   nameFor: {
-    text: "#text",
-    comment: "",
-    cdata: "",
+    // text: "#text",
+    // comment: "",
+    // cdata: "",
   },
   skip: {
-    declaration: false,
-    pi: false,
-    attributes: true,
-    cdata: false,
-    comment: false,
-    nsPrefix: false,
-    tags: false,
+    // declaration: false,
+    // pi: false,
+    // attributes: true,
+    // cdata: false,
+    // comment: false,
+    // nsPrefix: false,
+    // tags: false,
   },
   tags: {
     valueParsers: [],
-    stopNodes: [],
+    // stopNodes: [],
   },
   attributes: {
-    prefix: "@_",
-    suffix: "",
-    groupBy: "",
+    // prefix: "@_",
+    // suffix: "",
+    // groupBy: "",
     valueParsers: [],
   },
 };
 
 // Default chains: replaceEntities first (expand references), then type coercion.
 // const defaultTagParsers = ["entity", "boolean", "number"];
-const defaultTagParsers = ["trim", "number", "boolean"];
-const defaultAttrParsers = ["trim", "number", "boolean"];
+const defaultTagParsers = ["ws", "entity", "boolean", "number"];
+const defaultAttrParsers = ["entity", "number", "boolean"];
 
 export function buildOptions(options) {
   const finalOptions = deepClone(defaultOptions);

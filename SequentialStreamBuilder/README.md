@@ -1,6 +1,32 @@
 # Sequential Stream Output Builder
 
-Produces a sequential array where every element is represented as an object with the **tag name directly as a key** pointing to its children array. There is no separate `elementname` property — the structure is array-first throughout.
+Stream variant of the Sequential Output Builder. Instead of accumulating the full parse result in memory, each top-level XML element is serialised to JSON and emitted to a Writable stream (or callback) as soon as its closing tag is processed.
+
+## Install
+
+```bash
+npm install @nodable/sequential-stream-builder
+```
+
+## Usage
+
+```js
+import XMLParser from "@nodable/flexible-xml-parser";
+import {SequentialStreamBuilderFactory} from "@nodable/sequential-stream-builder";
+
+const parser = new XMLParser({
+  OutputBuilder: new SequentialStreamBuilderFactory({
+    stream: fs.createWriteStream('output.json'),
+    // onChunk: (chunk) => {
+    //   console.log('CHUNK EMITTED:', chunk);
+    // }
+  }),
+  ...parserOptions,
+});
+
+parser.parse(xmlString);
+// result is always an array in form of stream
+```
 
 ## Output structure
 
@@ -62,123 +88,54 @@ Output:
 ]
 ```
 
-## Basic example
-
-Input:
-```xml
-<root>
-  <child>hello</child>
-  <child>world</child>
-</root>
-```
-
-Output:
-```js
-[
-  {
-    root: [
-      { child: [], text: "hello" },
-      { child: [], text: "world" }
-    ]
-  }
-]
-```
-
-## Install
-
-```bash
-npm install @nodable/sequential-stream-builder
-```
-
-## Usage
-
-```js
-import XMLParser from "@nodable/flexible-xml-parser";
-import {SequentialStreamBuilderFactory} from "@nodable/sequential-stream-builder";
-
-const parser = new XMLParser({
-  OutputBuilder: new SequentialStreamBuilderFactory({
-    stream: fs.createWriteStream('output.json'),
-    // onChunk: (chunk) => {
-    //   console.log('CHUNK EMITTED:', chunk);
-    // }
-  }),
-  ...parserOptions,
-});
-
-parser.parse(xmlString);
-// result is always an array
-```
-
 ## Options
 
-### `attributes.groupBy` (default: `"attributes"`)
+> **Parser-level options** (`skip`, `nameFor`, `attributes.groupBy`, `attributes.prefix`,
+> `attributes.suffix`) are configured on the XML parser, not the builder factory.
+> See the `@nodable/flexible-xml-parser` documentation for those options.
 
-The property name under which all attributes are collected as a sibling alongside the tag key. The property is **only present** when attributes exist and `skip.attributes` is false.
+### `stream`
 
-```js
-new SequentialStreamBuilderFactory({
-  attributes: { groupBy: "attributes" }  // default
-})
-```
+A Node.js Writable stream. JSON chunks are written via `stream.write()` as each top-level element closes.
 
-To use a custom key:
+Mutually exclusive with `onChunk`. Exactly one must be provided.
 
 ```js
-new SequentialStreamBuilderFactory({
-  attributes: { groupBy: ":@" }
-})
-```
+import fs from 'node:fs';
 
-### `nameFor.text` (default: `"#text"`)
-
-The key used for inline text entries inside the children array when a node has mixed content (text interleaved with child elements).
-
-```js
-new SequentialStreamBuilderFactory({
-  nameFor: { text: ":text" }
-})
-```
-
-### `nameFor.comment`
-
-When `skip.comment` is false, this property name is used for comment entries in the children array.
-
-```js
-new SequentialStreamBuilderFactory({
-  nameFor: { comment: "#comment" }
-})
-```
-
-### `nameFor.cdata`
-
-When set, CDATA sections appear as `{ [cdata]: value }` entries in the children array. When unset (default), CDATA content is merged into the node's `text` value (same as regular text).
-
-```js
-// builder config
-const builderConfig = { nameFor: { cdata: "##cdata" } };
-// parser config
-const parserConfig  = { skip: { cdata: false } };
-
-const parser = new XMLParser({
-  OutputBuilder: new SequentialStreamBuilderFactory(builderConfig),
-  ...parserConfig,
+const out = fs.createWriteStream('output.json');
+out.on('open', () => {
+  const parser = new XMLParser({
+    OutputBuilder: new SequentialStreamBuilderFactory({ stream: out }),
+  });
+  parser.parse(xmlString);
+  out.end();
 });
 ```
 
-Output for `<root><code><![CDATA[data]]></code></root>`:
+### `onChunk`
+
+Callback invoked with each string chunk. Use when you don't have a Writable — e.g. to accumulate into a buffer or send over a WebSocket.
+
+Mutually exclusive with `stream`. Exactly one must be provided.
+
 ```js
-[
-  {
-    root: [
-      {
-        code: [
-          { "##cdata": "data" }
-        ]
-      }
-    ]
-  }
-]
+const chunks = [];
+const parser = new XMLParser({
+  OutputBuilder: new SequentialStreamBuilderFactory({
+    onChunk: (chunk) => chunks.push(chunk),
+  }),
+});
+parser.parse(xmlString);
+const json = chunks.join('');
+```
+
+### `space`
+
+Spacing argument forwarded to `JSON.stringify()`. Omit for compact output; pass `2` for human-readable indented output.
+
+```js
+new SequentialStreamBuilderFactory({ stream: out, space: 2 })
 ```
 
 ### `textInChild` (default: `false`)
@@ -204,16 +161,25 @@ Output with `textInChild: true`:
 [ { root: [ { a: [ { "#text": "hello" } ] } ] } ]
 ```
 
-### `skip.attributes` (default: `true`)
-
-When `true` (default), all attributes are ignored and no `attributes` property appears on entries. Set to `false` to populate attributes.
-
 ### Value parsers
 
-By default the parser chain `["entity", "boolean", "number"]` is applied to text content, converting `"42"` → `42` and `"true"` → `true`. Override with `tags.valueParsers`.
+By default the parser chain `["ws", "entity", "boolean", "number"]` is applied to text content, converting `"42"` → `42` and `"true"` → `true`. Override with `tags.valueParsers`.
 
 ```js
 new SequentialStreamBuilderFactory({
   tags: { valueParsers: [] }   // keep all values as raw strings
+})
+```
+
+### `onClose`
+
+Called when any tag closes, before its entry is pushed to the parent's children array. Return a truthy value to drop the tag from output entirely.
+
+```js
+new SequentialStreamBuilderFactory({
+  stream: out,
+  onClose: (node, matcher) => {
+    if (node.tagname === 'internal') return true; // drop
+  },
 })
 ```

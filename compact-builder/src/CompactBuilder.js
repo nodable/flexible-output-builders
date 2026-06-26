@@ -1,77 +1,37 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, commonValueParsers, ElementType } from '@nodable/base-output-builder';
-import { Expression } from 'path-expression-matcher';
+import { BaseOutputBuilder, BaseOutputBuilderFactory, Context } from '@nodable/base-output-builder';
+import { MatcherView } from 'path-expression-matcher';
+
 
 export default class CompactBuilderFactory extends BaseOutputBuilderFactory {
-  constructor(builderOptions) {
-    super()
-    this.options = buildOptions(builderOptions);
-
-    // Pre-compile any string expressions in alwaysArray to Expression objects once
-    if (this.options.alwaysArray) {
-      this.options.alwaysArray = this.options.alwaysArray.map(entry =>
-        typeof entry === 'string' ? new Expression(entry) : entry
-      );
-    }
+  constructor(builderOptions = {}) {
+    super();
+    this.builderOptions = buildOptions(builderOptions);
   }
 
-  // registerValueParser(name, parserInstance) {
-  //   //This would replace the default value parser with the user provided value parser
-  //   this.commonValParsers[name] = parserInstance;
-  // }
-
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValueParsers();
-    const valParsers = { ...this.commonValParsers };
-    return new CompactBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
+    return new CompactBuilder(
+      parserOptions,
+      this.builderOptions,
+      readonlyMatcher,
+      this.registry
+    );
   }
 }
 
 export class CompactBuilder extends BaseOutputBuilder {
 
-  constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher) {
-    super(readonlyMatcher);
+  /**
+   * @param {object}                parserOptions
+   * @param {object}                builderOptions
+   * @param {MatcherView} readonlyMatcher
+   * @param {object}                registry
+   */
+  constructor(parserOptions, builderOptions, readonlyMatcher, registry) {
+    super(parserOptions, builderOptions, readonlyMatcher, registry);
+    this.parserOptions = parserOptions;
+    this.builderOptions = builderOptions;
     this.tagsStack = [];
-
-    this.options = {
-      ...builderOptions,
-      ...parserOptions,
-      skip: { ...builderOptions.skip, ...parserOptions.skip },
-      nameFor: { ...builderOptions.nameFor, ...parserOptions.nameFor },
-      tags: { ...builderOptions.tags, ...parserOptions.tags },
-      attributes: { ...builderOptions.attributes, ...parserOptions.attributes },
-      textJoint: builderOptions.textJoint || "", // when text for a tag is combined from multiple text nodes
-
-      /**
-       * Function to determine if a tag should be forced into an array.
-       * Called with (matcher, isLeafNode) where:
-       * - matcher: ReadOnlyMatcher - path matcher for current tag
-       * - isLeafNode: boolean|null - null when not yet determinable
-       * Returns: boolean - true to force array, false to veto, undefined to abstain
-       */
-      forceArray: builderOptions?.forceArray || null,
-
-      /**
-       * Array of strings (tag names) or Expression objects.
-       * Any match votes true; no match abstains (does not veto).
-       * Combined with forceArray using equal-priority voting:
-       * - Either explicit false → false (veto wins)
-       * - Any true, none false → true
-       * - All abstain → false (default)
-       */
-      alwaysArray: builderOptions?.alwaysArray || [],
-
-      /**
-       * Boolean flag that forces creation of a text node for every tag.
-       * When true, a text node is always created under nameFor.text even if
-       * the tag has no other children or attributes.
-       * Default: false (text node created only when tag has attributes or children)
-       */
-      forceTextNode: builderOptions?.forceTextNode ?? false,
-    };
-
-    this.registeredValParsers = registeredValParsers;
-
     this.root = {};
     this.parent = this.root;
     this.tagName = this._rootName;
@@ -82,14 +42,8 @@ export class CompactBuilder extends BaseOutputBuilder {
   }
 
   /**
-   * Builds the initial value object from the current attributes and sets
-   * `this.hasAttributes` accordingly. Returns "" when there are no attributes.
-   *
-   * Centralises the duplicated attribute-grouping logic so that callers
-   * (addElement, addInstruction) stay concise and closeElement() can rely on
-   * the flag instead of re-inspecting value keys or prefixes.
-   *
-   * @returns {object|string} Attribute object, or "" when no attributes exist.
+   * Builds the initial value object from current attributes.
+   * Returns "" when there are no attributes.
    */
   _buildAttributeValue() {
     if (isEmpty(this.attributes)) {
@@ -97,36 +51,19 @@ export class CompactBuilder extends BaseOutputBuilder {
       return "";
     }
     this.hasAttributes = true;
-    if (this.options.attributes.groupBy) {
-      return { [this.options.attributes.groupBy]: this.attributes };
+    if (this.parserOptions.attributes.groupBy) {
+      return { [this.parserOptions.attributes.groupBy]: this.attributes };
     }
-    return this.attributes; // no spread needed — this.attributes is reassigned to {} right after
+    return this.attributes;
   }
 
   addElement(tag) {
     const value = this._buildAttributeValue();
-
-    // Push current tag's value-tree state so closeElement() can restore it.
-    // tagName is included so the builder is self-contained — callers do not
-    // need to pass the name back in on close.
     this.tagsStack.push([this.tagName, this.textValue, this.value, this.hasAttributes]);
     this.tagName = tag.name;
     this.value = value;
     this.textValue = "";
     this.attributes = {};
-  }
-
-  /**
-   * Called when a stop node is fully collected, before `addValue`.
-   * Fires the user-supplied `onStopNode` callback if one is configured.
-   *
-   * @param {TagDetail} tagDetail  - Name, line, col, index of the stop node.
-   * @param {string}    rawContent - Raw unparsed content between the tags.
-   */
-  onStopNode(tagDetail, rawContent) {
-    if (typeof this.options.onStopNode === 'function') {
-      this.options.onStopNode(tagDetail, rawContent, this.matcher);
-    }
   }
 
   /**
@@ -148,15 +85,14 @@ export class CompactBuilder extends BaseOutputBuilder {
   _resolveForceArray(isLeafNode) {
     // --- alwaysArray vote ---
     let alwaysVote; // undefined = abstain
-    const alwaysArray = this.options.alwaysArray;
-    const matched = alwaysArray.some(entry => this.matcher.matches(entry));
+    const matched = this.builderOptions._alwaysArraySet.matchesAny(this.matcher);
     if (matched) alwaysVote = true;
     // no match → alwaysVote stays undefined (abstain, not false)
 
     // --- forceArray vote ---
     let forceVote; // undefined = abstain
-    if (typeof this.options.forceArray === 'function') {
-      const result = this.options.forceArray(this.matcher, isLeafNode);
+    if (typeof this.builderOptions.forceArray === 'function') {
+      const result = this.builderOptions.forceArray(this.matcher, isLeafNode);
       if (result === true) forceVote = true;
       else if (result === false) forceVote = false;
       // anything else (undefined, null, …) → abstain
@@ -183,16 +119,15 @@ export class CompactBuilder extends BaseOutputBuilder {
       || isEmpty(value)                            // no attributes, no children
       || hasAttributes;                            // only attributes present, no child elements yet
 
-    const context = {
-      elementName: tagName,
-      elementValue: textValue,
-      elementType: ElementType.ELEMENT,
-      matcher: this.matcher,
-      isLeafNode: isLeafNode,
-    };
+    const context = new Context(
+      tagName,
+      this.matcher,
+      isLeafNode,
+      false,
+    );
 
     if (isLeafNode) {
-      const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
+      const parsedText = this._pendingStopNode ? textValue : this.tagsPipeline.run(textValue, context);
 
       if (hasAttributes) {
         // Attributes are present — value is already an object.
@@ -200,32 +135,30 @@ export class CompactBuilder extends BaseOutputBuilder {
         // parsedText alongside attributes would produce a spurious #text:"" key.
         // forceTextNode overrides this and writes the node even when empty.
         if (parsedText !== "" && parsedText !== null && parsedText !== undefined) {
-          value[this.options.nameFor.text] = parsedText;
-        } else if (this.options.forceTextNode) {
-          value[this.options.nameFor.text] = parsedText;
+          value[this.parserOptions.nameFor.text] = parsedText;
+        } else if (this.builderOptions.forceTextNode) {
+          value[this.parserOptions.nameFor.text] = parsedText;
         }
-      } else if (this.options.forceTextNode) {
+      } else if (this.builderOptions.forceTextNode) {
         // No attributes — wrap in an object so the shape is always consistent
-        value = { [this.options.nameFor.text]: parsedText };
+        value = { [this.parserOptions.nameFor.text]: parsedText };
       } else {
         // No attributes, no forceTextNode — use the plain parsed value
         value = parsedText;
       }
-    } else if (textValue.length > 0) {
+    } else if (textValue.length > 0 || this.builderOptions.forceTextNode) {
       // Non-leaf node with actual text content sitting between child elements
-      const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
-      value[this.options.nameFor.text] = parsedText;
-    } else if (textValue.length > 0 || this.options.forceTextNode) {
-      const parsedText = this.parseValue(textValue, this.options.tags.valueParsers, context);
-      value[this.options.nameFor.text] = parsedText;
+      // mixed content: element has both child tags and text
+      const parsedText = this._pendingStopNode ? textValue : this.tagsPipeline.run(textValue, context);
+      value[this.parserOptions.nameFor.text] = parsedText;
     }
 
     let resultTag = { tagName, value };
 
-    if (this.options.onTagClose !== undefined) {
-      resultTag = this.options.onTagClose(tagName, value, textValue, this.matcher);
-      if (!resultTag) return;
-    }
+    // if (this.parserOptions.onTagClose !== undefined) {
+    //   resultTag = this.parserOptions.onTagClose(tagName, value, textValue, this.matcher);
+    //   if (!resultTag) return;
+    // }
 
     const arr = this.tagsStack.pop();
     let parentTag = arr[2];
@@ -239,11 +172,12 @@ export class CompactBuilder extends BaseOutputBuilder {
     this.textValue = arr[1];
     this.value = parentTag;
     this.hasAttributes = arr[3]; // restore parent tag's flag
+    this._pendingStopNode = false;
   }
 
   _addChild(key, val) {
     if (typeof this.value === "string") {
-      this.value = { [this.options.nameFor.text]: this.value };
+      this.value = { [this.parserOptions.nameFor.text]: this.value };
     }
     this._addChildTo(key, val, this.value, false);
     this.attributes = {};
@@ -253,62 +187,17 @@ export class CompactBuilder extends BaseOutputBuilder {
     if (typeof node === 'string') node = {};
 
     if (!Object.prototype.hasOwnProperty.call(node, key)) {
-      // First occurrence of this key
-      if (forceArray) {
-        node[key] = [val];
-      } else {
-        node[key] = val;
-      }
+      node[key] = forceArray ? [val] : val;
     } else {
-      // Key already exists
-      if (!Array.isArray(node[key])) {
-        node[key] = [node[key]];
-      }
+      if (!Array.isArray(node[key])) node[key] = [node[key]];
       node[key].push(val);
     }
     return node;
   }
 
   addValue(text) {
-    if (this.textValue.length > 0) this.textValue += this.options.textJoint + text;
+    if (this.textValue.length > 0) this.textValue += `${this.builderOptions.textJoint}${text}`;
     else this.textValue = text;
-  }
-
-  /**
-   * Called by the parser when `exitIf` returns true for the current tag.
-   * Receives a snapshot of the parser state at the moment of exit, after
-   * all open tags have been cleanly closed by the parser.
-   *
-   * Override in subclasses to record the exit position or annotate output.
-   *
-   * @param {object} exitInfo
-   * @param {object} exitInfo.tagDetail   - `{ name, line, col, index }` of the
-   *                                        tag that triggered the exit.
-   * @param {object} exitInfo.matcher     - Read-only matcher positioned at
-   *                                        that tag at the moment exitIf fired.
-   * @param {number} exitInfo.depth       - Nesting depth at exit (0 = root children).
-   */
-  onExit(exitInfo) {
-    // Base implementation: attach exit metadata to the output root so callers
-    // can tell the parse was intentionally truncated and where it stopped.
-    // Stored under __exitInfo to avoid colliding with any tag-derived key.
-    // Subclasses may override to suppress, transform, or log this information.
-    // if (this.value && typeof this.value === 'object') {
-    //   Object.defineProperty(this.value, '__exitInfo', {
-    //     value: {
-    //       tag: exitInfo.tagDetail.name,
-    //       line: exitInfo.tagDetail.line,
-    //       col: exitInfo.tagDetail.col,
-    //       index: exitInfo.tagDetail.index,
-    //       depth: exitInfo.depth,
-    //     },
-    //     enumerable: false,   // invisible to JSON.stringify and for-in
-    //     configurable: true,
-    //     writable: true,
-    //   });
-    // }
-
-    //Do nothing
   }
 
   addInstruction(name) {
@@ -316,6 +205,8 @@ export class CompactBuilder extends BaseOutputBuilder {
     this._addChild(name, value);
     this.attributes = {};
   }
+
+  onExit(exitInfo) { }
 
   getOutput() {
     return this.value;
@@ -326,4 +217,3 @@ function isEmpty(obj) {
   return Object.keys(obj).length === 0;
 }
 
-// export { CompactBuilder as CompactObjBuilder };

@@ -1,6 +1,6 @@
 const defaultOptions = {
   nameFor: {
-    text: "#text",
+    // text: "#text",
     // comment: "",
     // cdata: "",
   },
@@ -18,16 +18,16 @@ const defaultOptions = {
     // stopNodes: [],
   },
   attributes: {
-    prefix: "@_",
-    suffix: "",
-    groupBy: "attributes",
+    // prefix: "@_",
+    // suffix: "",
+    // groupBy: "attributes",
     valueParsers: [],
   },
   textInChild: false,
 };
 
 // Default chains: replaceEntities first (expand references), then type coercion.
-const defaultTagParsers = ["entity", "boolean", "number"];
+const defaultTagParsers = ["ws", "boolean", "number", "entity"];
 const defaultAttrParsers = ["entity", "number", "boolean"];
 
 export function buildOptions(options) {

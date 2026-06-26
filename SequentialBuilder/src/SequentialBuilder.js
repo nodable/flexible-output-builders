@@ -1,76 +1,63 @@
 import { buildOptions } from './ParserOptionsBuilder.js';
-import { BaseOutputBuilder, BaseOutputBuilderFactory, ElementType } from '@nodable/base-output-builder';
-
+import { BaseOutputBuilder, BaseOutputBuilderFactory, Context } from '@nodable/base-output-builder';
+import { MatcherView } from 'path-expression-matcher';
 
 export default class SequentialBuilderFactory extends BaseOutputBuilderFactory {
   constructor(options) {
     super();
-    this.options = buildOptions(options);
+    this.builderOptions = buildOptions(options);
   }
 
   getInstance(parserOptions, readonlyMatcher) {
-    this.resetValueParsers();
-    const valParsers = { ...this.commonValParsers };
-    return new SequentialBuilder(parserOptions, this.options, valParsers, readonlyMatcher);
+    return new SequentialBuilder(
+      parserOptions,
+      this.builderOptions,
+      readonlyMatcher,
+      this.registry,
+    );
   }
 }
 
 export class SequentialBuilder extends BaseOutputBuilder {
 
-  constructor(parserOptions, builderOptions, registeredValParsers, readonlyMatcher) {
-    super(readonlyMatcher);
+  /**
+ * @param {object}                parserOptions
+ * @param {object}                builderOptions
+ * @param {MatcherView} readonlyMatcher
+ * @param {object}                registry
+ */
+  constructor(parserOptions, builderOptions, readonlyMatcher, registry) {
+    super(parserOptions, builderOptions, readonlyMatcher, registry);
+
     this.tagsStack = [];
     this.parserOptions = parserOptions;
-
-    this.options = {
-      ...parserOptions,
-      ...builderOptions,
-      skip: { ...parserOptions.skip, ...builderOptions.skip },
-      nameFor: { ...parserOptions.nameFor, ...builderOptions.nameFor },
-      tags: { ...parserOptions.tags, ...builderOptions.tags },
-      attributes: { ...parserOptions.attributes, ...builderOptions.attributes },
-    };
-
-    this.registeredValParsers = registeredValParsers;
-
-    this.root = new Node(this._rootName, this.options);
+    this.builderOptions = builderOptions;
+    this.groupBy = parserOptions.attributes.groupBy || 'attributes';
+    this.root = new Node(this._rootName, this.groupBy);
     this.currentNode = this.root;
     this.attributes = {};
     this._pendingStopNode = false;
   }
 
   addElement(tag) {
-    // If the current node has text set (text arrived before any child element),
-    // retroactively migrate it into the children array as an inline text entry
-    // now that we know this is mixed content.
+    // If text arrived before any child element, retroactively migrate it into
+    // the children array now that we know this is mixed content.
     if (this.currentNode.text !== undefined) {
       this.currentNode.children.unshift({
-        [this.options.nameFor.text]: this.currentNode.text
+        [this.parserOptions.nameFor.text]: this.currentNode.text
       });
       delete this.currentNode.text;
     }
 
     this.tagsStack.push(this.currentNode);
-    const node = new Node(tag.name, this.options);
+    const node = new Node(tag.name, this.groupBy);
+
     // Attach any pending attributes onto the new node
     if (this.attributes && Object.keys(this.attributes).length > 0) {
-      node[this.options.attributes.groupBy] = { ...this.attributes };
+      node[this.groupBy] = { ...this.attributes };
     }
     this.attributes = {};
     this.currentNode = node;
-  }
-
-  /**
-   * Called when a stop node is fully collected, before `addValue`.
-   *
-   * @param {TagDetail}       tagDetail  - name, line, col, index of the stop node
-   * @param {string}          rawContent - raw unparsed content between the tags
-   */
-  onStopNode(tagDetail, rawContent) {
-    this._pendingStopNode = true;
-    if (typeof this.options.onStopNode === 'function') {
-      this.options.onStopNode(tagDetail, rawContent, this.matcher);
-    }
   }
 
   closeElement() {
@@ -79,8 +66,8 @@ export class SequentialBuilder extends BaseOutputBuilder {
 
     this._pendingStopNode = false;
 
-    if (this.options.onClose !== undefined) {
-      const resultTag = this.options.onClose(node, this.matcher);
+    if (this.builderOptions.onClose !== undefined) {
+      const resultTag = this.builderOptions.onClose(node, this.matcher);
       if (resultTag) return;
     }
 
@@ -90,9 +77,8 @@ export class SequentialBuilder extends BaseOutputBuilder {
     // Attributes (when present) are a sibling property alongside the tag key.
     const entry = { [node.tagname]: node.children };
 
-    const groupBy = this.options.attributes.groupBy;
-    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
-      entry[groupBy] = node[groupBy];
+    if (node[this.groupBy] && Object.keys(node[this.groupBy]).length > 0) {
+      entry[this.groupBy] = node[this.groupBy];
     }
 
     // text is a sibling property (leaf-node case — no element children)
@@ -108,23 +94,22 @@ export class SequentialBuilder extends BaseOutputBuilder {
     // Check whether there are already element children (mixed content scenario).
     // Mixed content = children that are NOT bare text entries.
     const hasElementChildren = this.currentNode?.children?.some(
-      c => !Object.prototype.hasOwnProperty.call(c, this.options.nameFor.text)
+      c => !Object.prototype.hasOwnProperty.call(c, this.parserOptions.nameFor.text)
     );
 
-    const context = {
-      elementName: tagName,
-      elementValue: text,
-      elementType: ElementType.ELEMENT,
-      matcher: this.matcher,
-      isLeafNode: !hasElementChildren,
-    };
+    const context = new Context(
+      tagName,
+      this.matcher,
+      !hasElementChildren,
+      false
+    );
 
-    const parsedValue = this.parseValue(text, this.options.tags.valueParsers, context);
+    const parsedValue = this._pendingStopNode ? text : this.tagsPipeline.run(text, context);
 
-    if (hasElementChildren || this.options.textInChild) {
+    if (hasElementChildren || this.builderOptions.textInChild) {
       // Mixed content: text alongside child elements — store as inline text child
       this.currentNode.children.push({
-        [this.options.nameFor.text]: parsedValue
+        [this.parserOptions.nameFor.text]: parsedValue
       });
     } else {
       // Pure text (leaf node or text before any child elements):
@@ -134,86 +119,45 @@ export class SequentialBuilder extends BaseOutputBuilder {
   }
 
   addInstruction(name) {
-    const node = new Node(name, this.options);
-    const groupBy = this.options.attributes.groupBy;
+    const node = new Node(name, this.groupBy);
     if (this.attributes && Object.keys(this.attributes).length > 0) {
-      node[groupBy] = { ...this.attributes };
+      node[this.groupBy] = { ...this.attributes };
     }
     const entry = { [node.tagname]: node.children };
-    if (node[groupBy] && Object.keys(node[groupBy]).length > 0) {
-      entry[groupBy] = node[groupBy];
+    if (node[this.groupBy] && Object.keys(node[this.groupBy]).length > 0) {
+      entry[this.groupBy] = node[this.groupBy];
     }
     this.currentNode.children.push(entry);
     this.attributes = {};
   }
 
   addComment(text) {
-    if (this.options.skip.comment) return;
-    if (this.options.nameFor.comment) {
-      this.currentNode.children.push({
-        [this.options.nameFor.comment]: text
-      });
+    if (this.parserOptions.skip.comment) return;
+    if (this.parserOptions.nameFor.comment) {
+      this.currentNode.children.push({ [this.parserOptions.nameFor.comment]: text });
     }
   }
 
   addLiteral(text) {
-    if (this.options.skip.cdata) return;
-    if (this.options.nameFor.cdata) {
-      this.currentNode.children.push({
-        [this.options.nameFor.cdata]: text
-      });
+    if (this.parserOptions.skip.cdata) return;
+    if (this.parserOptions.nameFor.cdata) {
+      this.currentNode.children.push({ [this.parserOptions.nameFor.cdata]: text });
     } else {
       this.addValue(text || '');
     }
   }
 
+  onExit(exitInfo) { }
+
   getOutput() {
     return this.root.children;
-  }
-
-  /**
- * Called by the parser when `exitIf` returns true for the current tag.
- * Receives a snapshot of the parser state at the moment of exit, after
- * all open tags have been cleanly closed by the parser.
- *
- * Override in subclasses to record the exit position or annotate output.
- *
- * @param {object} exitInfo
- * @param {object} exitInfo.tagDetail   - `{ name, line, col, index }` of the
- *                                        tag that triggered the exit.
- * @param {object} exitInfo.matcher     - Read-only matcher positioned at
- *                                        that tag at the moment exitIf fired.
- * @param {number} exitInfo.depth       - Nesting depth at exit (0 = root children).
- */
-  onExit(exitInfo) {
-    // Base implementation: attach exit metadata to the output root so callers
-    // can tell the parse was intentionally truncated and where it stopped.
-    // Stored under __exitInfo to avoid colliding with any tag-derived key.
-    // Subclasses may override to suppress, transform, or log this information.
-    // if (this.value && typeof this.value === 'object') {
-    //   Object.defineProperty(this.value, '__exitInfo', {
-    //     value: {
-    //       tag: exitInfo.tagDetail.name,
-    //       line: exitInfo.tagDetail.line,
-    //       col: exitInfo.tagDetail.col,
-    //       index: exitInfo.tagDetail.index,
-    //       depth: exitInfo.depth,
-    //     },
-    //     enumerable: false,   // invisible to JSON.stringify and for-in
-    //     configurable: true,
-    //     writable: true,
-    //   });
-    // }
-
-    //Do nothing
   }
 }
 
 class Node {
-  constructor(tagname, options) {
+  constructor(tagname, groupBy) {
     this.tagname = tagname;
     this.children = [];
-    const groupBy = options?.attributes?.groupBy ?? 'attributes';
     this[groupBy] = {};
   }
 }
