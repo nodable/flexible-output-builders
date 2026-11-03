@@ -66,9 +66,9 @@ export declare class CompactBuilder extends BaseOutputBuilder {
     registry: ValueParserRegistry,
   );
 
-  addElement(tag: { name: string }, matcher: MatcherView): void;
-  closeElement(matcher: MatcherView): void;
-  addValue(text: string, matcher: MatcherView): void;
+  addElement(tag: { name: string }): void;
+  closeElement(): void;
+  addValue(text: string): void;
   addInstruction(name: string): void;
   onStopNode(
     tagDetail: { name: string; line: number; col: number; index: number },
