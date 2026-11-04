@@ -185,10 +185,32 @@ export declare class BaseOutputBuilder {
     resetPipelines?: boolean,
   );
 
-  addElement(tag: { name: string;[key: string]: unknown }): void;
-  closeElement(): void;
-  addAttribute(name: string, value: unknown, matcher: MatcherView): void;
-  addValue(text: string): void;
+  /**
+   * The parser also passes the path matcher as a second input. It is the same
+   * object as `this.matcher`, so builders can ignore it. Planned for removal
+   * in the next major version.
+   */
+  addElement(
+    tag: { name: string; index?: number; openEnd?: number;[key: string]: unknown },
+    matcher?: MatcherView,
+  ): void;
+  /**
+   * `matcher` and `closeMeta` are optional: builders that read the path from
+   * `this.matcher` can ignore them. `closeMeta.index` / `closeEnd` give the
+   * closing-tag position when available (see parser docs, position metadata).
+   */
+  closeElement(
+    matcher?: MatcherView,
+    closeMeta?: { name: string; index?: number; closeEnd?: number },
+  ): void;
+  addAttribute(
+    name: string,
+    value: unknown,
+    matcher: MatcherView,
+    attrMeta?: { index: number },
+  ): void;
+  /** `matcher` is the same object as `this.matcher` (see `addElement`). */
+  addValue(text: string, matcher?: MatcherView): void;
   addComment(text: string): void;
   addLiteral(text: string): void;
   addRawValue(text: string): void;
@@ -197,11 +219,13 @@ export declare class BaseOutputBuilder {
   addInstruction(name: string): void;
 
   onStopNode(
-    tagDetail: { name: string; line: number; col: number; index: number },
+    tagDetail: { name: string; index: number; openEnd?: number },
     rawContent: string,
+    matcher?: MatcherView,
+    stopEnd?: { index: number },
   ): void;
   onExit(exitInfo: {
-    tagDetail: { name: string; line: number; col: number; index: number };
+    tagDetail: { name: string; index: number; openEnd?: number };
     matcher: MatcherView;
     depth: number;
   }): void;
