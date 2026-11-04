@@ -1,3 +1,20 @@
+### 4 Nov 2026
+Base Output Builder v2.0.1
+- fix typins
+- update deps
+    - "@nodable/entities": "^3.1.0",
+    - "is-unsafe": "^2.0.3",
+    - "path-expression-matcher": "^1.6.2",
+    - "strnum": "^2.5.1"
+
+Compact Builder v2.0.1
+Sequential Builder v2.0.1
+Sequential Stream Builder v2.0.1
+Node Tree Builder v2.0.1
+- fix typins
+- update deps
+    - "@nodable/base-output-builder": "^2.0.1",
+    - "path-expression-matcher": "^1.6.2"
 
 ### 26 Jun 2026
 
