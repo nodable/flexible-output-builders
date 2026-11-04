@@ -162,17 +162,7 @@ export declare class SequentialStreamBuilder extends BaseOutputBuilder {
     space: number | string | undefined,
   );
 
-  addElement(tag: { name: string }): void;
-  closeElement(): void;
-  addValue(text: string): void;
-  addComment(text: string): void;
-  addLiteral(text: string): void;
-  addInstruction(name: string): void;
-  onExit(exitInfo: {
-    tagDetail: { name: string; line: number; col: number; index: number };
-    matcher: MatcherView;
-    depth: number;
-  }): void;
+  // All other methods are inherited unchanged from BaseOutputBuilder.
   /** Always returns `null` — output is streamed, not held in memory. */
   getOutput(): null;
 }

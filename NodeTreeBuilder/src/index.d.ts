@@ -75,17 +75,7 @@ export declare class NodeTreeBuilder extends BaseOutputBuilder {
     registry: ValueParserRegistry,
   );
 
-  addElement(tag: { name: string }): void;
-  closeElement(): void;
-  addValue(text: string): void;
-  addComment(text: string): void;
-  addLiteral(text: string): void;
-  addInstruction(name: string): void;
-  onExit(exitInfo: {
-    tagDetail: { name: string; line: number; col: number; index: number };
-    matcher: MatcherView;
-    depth: number;
-  }): void;
+  // All other methods are inherited unchanged from BaseOutputBuilder.
   /** Returns the single root node, or an array if the document has multiple root-level elements. */
   getOutput(): XmlNode | XmlNode[];
 }

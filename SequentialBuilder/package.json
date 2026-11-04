@@ -1,6 +1,6 @@
 {
   "name": "@nodable/sequential-builder",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Sequential JS Array builder for flexible-xml-parser",
   "main": "src/index.js",
   "types": "./src/index.d.ts",
@@ -21,8 +21,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@nodable/base-output-builder": "^2.0.0",
-    "path-expression-matcher": "^1.6.1"
+    "@nodable/base-output-builder": "^2.0.1",
+    "path-expression-matcher": "^1.6.2"
   },
   "funding": [
     {
