@@ -22,10 +22,10 @@
     "src"
   ],
   "dependencies": {
-    "@nodable/entities": "^2.2.0",
-    "is-unsafe": "^1.0.1",
-    "path-expression-matcher": "^1.6.1",
-    "strnum": "^2.4.1"
+    "@nodable/entities": "^3.1.0",
+    "is-unsafe": "^2.0.3",
+    "path-expression-matcher": "^1.6.2",
+    "strnum": "^2.5.1"
   },
   "funding": [
     {
