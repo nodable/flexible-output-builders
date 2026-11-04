@@ -66,15 +66,13 @@ export declare class CompactBuilder extends BaseOutputBuilder {
     registry: ValueParserRegistry,
   );
 
-  addElement(tag: { name: string }, matcher: MatcherView): void;
-  closeElement(matcher: MatcherView): void;
-  addValue(text: string, matcher: MatcherView): void;
-  addInstruction(name: string): void;
-  onStopNode(
-    tagDetail: { name: string; line: number; col: number; index: number },
-    rawContent: string,
-  ): void;
-  getOutput(): unknown;
+  // All other methods are inherited unchanged from BaseOutputBuilder.
+
+  /**
+   * Typed `any` on purpose: the shape depends on the XML, and `any` lets
+   * callers assign it to their own interface without a cast.
+   */
+  getOutput(): any;
 }
 
 // ─── CompactBuilderFactory ───────────────────────────────────────────────────
